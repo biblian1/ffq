@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IBD 식단 설문조사</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; background: #f3f4f6; min-height: 100vh; }
+.wrap { max-width: 680px; margin: 0 auto; padding: 1rem; }
+.hdr { display: flex; align-items: center; background: #fff; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1rem; border: 1px solid #e5e7eb; }
+.hdr-title { font-size: 16px; font-weight: 600; color: #111; }
+.hdr-sub { font-size: 12px; color: #888; margin-top: 2px; }
+.mtgl { margin-left: auto; display: flex; gap: 8px; }
+.mbtn { padding: 7px 16px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 13px; cursor: pointer; }
+.mbtn.active { background: #1a56db; color: #fff; border-color: #1a56db; }
+.card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1.25rem; margin-bottom: 12px; }
+.idinput { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #ccc; font-size: 20px; text-align: center; letter-spacing: 4px; margin-top: 8px; }
+.bigbtn { width: 100%; padding: 14px; border-radius: 8px; border: none; background: #1a56db; color: #fff; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+.bigbtn:active { background: #1447b0; }
+.pbar { background: #e5e7eb; border-radius: 999px; height: 6px; margin-bottom: 1.5rem; overflow: hidden; }
+.pfill { height: 100%; background: #1a56db; border-radius: 999px; transition: width 0.3s; }
+.stitle { font-size: 18px; font-weight: 600; color: #111; margin-bottom: 4px; }
+.ssub { font-size: 13px; color: #888; margin-bottom: 1rem; }
+.fitem { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 10px; }
+.fname { font-size: 15px; font-weight: 600; color: #111; margin-bottom: 10px; line-height: 1.4; }
+.flabel { font-size: 12px; color: #888; margin-bottom: 6px; }
+.fbtns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.fbtn { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 13px; cursor: pointer; }
+.fbtn.sel { background: #1a56db; color: #fff; border-color: #1a56db; font-weight: 600; }
+.fbtn:active { opacity: 0.8; }
+.abtns { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.abtn { padding: 7px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 12px; cursor: pointer; line-height: 1.4; }
+.abtn.sel { background: #057a55; color: #fff; border-color: #057a55; font-weight: 600; }
+.abtn:active { opacity: 0.8; }
+.season-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
+.sbtn { padding: 7px 14px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 13px; cursor: pointer; }
+.sbtn.sel-spring { background: #059669; color: #fff; border-color: #059669; font-weight: 600; }
+.sbtn.sel-summer { background: #d97706; color: #fff; border-color: #d97706; font-weight: 600; }
+.sbtn.sel-fall   { background: #b45309; color: #fff; border-color: #b45309; font-weight: 600; }
+.sbtn.sel-winter { background: #2563eb; color: #fff; border-color: #2563eb; font-weight: 600; }
+.navbtns { display: flex; gap: 10px; margin-top: 1.5rem; }
+.navbtn { flex: 1; padding: 13px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #111; font-size: 15px; font-weight: 600; cursor: pointer; }
+.navbtn.pr { background: #1a56db; color: #fff; border: none; }
+.navbtn:active { opacity: 0.8; }
+.prow { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+.prow:last-child { border-bottom: none; }
+.nrow { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+.nrow:last-child { border-bottom: none; }
+.badge { padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+.stepind { font-size: 13px; color: #888; text-align: right; margin-bottom: 6px; }
+.note { font-size: 12px; color: #1a56db; background: #eff6ff; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; line-height: 1.5; }
+.divider { height: 1px; background: #f3f4f6; margin: 10px 0; }
+.subq { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-top: 8px; }
+.subq-label { font-size: 12px; color: #1a56db; font-weight: 600; margin-bottom: 6px; }
+.subq-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.sqbtn { padding: 6px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 12px; cursor: pointer; }
+.sqbtn.sel { background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hdr">
+    <div>
+      <div class="hdr-title">식단 설문조사</div>
+      <div class="hdr-sub">IBD 코호트 연구 · 가톨릭대학교 여의도성모병원</div>
+    </div>
+    <div class="mtgl">
+      <button class="mbtn active" id="mp" onclick="toMode('patient')">환자</button>
+      <button class="mbtn" id="md" onclick="toMode('doctor')">의사</button>
+    </div>
+  </div>
+  <div id="main"></div>
+</div>
+
+<script>
+var FREQS=['거의 안 먹음','월 1회','월 2-3회','주 1-2회','주 3-4회','주 5-6회','매일 1회','매일 2회','매일 3회+'];
+var FSCORES=[0,1/30,2.5/30,1.5/7,3.5/7,5.5/7,1,2,3];
+var SEASONS=[
+  {key:'spring', label:'🌸 봄', cls:'sel-spring'},
+  {key:'summer', label:'☀️ 여름', cls:'sel-summer'},
+  {key:'fall',   label:'🍂 가을', cls:'sel-fall'},
+  {key:'winter', label:'❄️ 겨울', cls:'sel-winter'},
+];
+
+// seasonal:true → 계절 체크 + 섭취빈도(1개) + 1회섭취량
+var S=[
+  {name:'곡류', items:[
+    {n:'밥', note:'집뿐만 아니라 회사, 식당에서 드시는 것도 포함', a:['1/2공기','1공기(210g)','1공기 반'], sub:{q:'주로 드시는 밥의 종류는?', opts:['쌀밥','콩밥','잡곡밥','쌀밥과 잡곡밥(콩밥 포함)을 비슷하게']}},
+    {n:'식빵/샌드위치/토스트', a:['1쪽','2쪽','3쪽']},
+    {n:'잼/꿀/시럽', a:['1찻술(5g)','2찻술','3찻술']},
+    {n:'버터/마아가린', a:['1찻술(5g)','2찻술','3찻술']},
+    {n:'떡', a:['인절미 기준 1개','인절미 기준 3개(50g)','인절미 기준 5개']},
+    {n:'칼국수/우동/냉면/짜장면/짬뽕/국수장국/스파게티', a:['1/2그릇','1그릇','1그릇 반']},
+    {n:'떡국/만두/만두국', a:['1/2그릇','1그릇','1그릇 반']},
+    {n:'라면', a:['1/2그릇','1그릇','1그릇 반']},
+    {n:'씨리얼/콘푸레이크(우유 제외)', a:['종이컵 1/2컵','종이컵 1컵(30g)','종이컵 1컵 반']},
+    {n:'선식/미숫가루/생식', a:['1큰술 반','3큰술(40g)','4큰술 반']},
+    {n:'피자/햄버거', a:['피자1쪽/햄버거1/2개','피자2쪽/햄버거1개','피자3쪽/햄버거1.5개']},
+    {n:'감자(찐감자, 감자튀김, 감자국 등)', a:['중 1/2개','중 1개','중 1개 반']},
+    {n:'고구마(찐고구마, 맛탕 등)', a:['중 1/2개','중 1개','중 1개 반']},
+  ]},
+  {name:'육류 / 계란', items:[
+    {n:'쇠고기구이(등심, 안심, 불고기 등)', a:['1/2인분','1인분(200g)','1인분 반']},
+    {n:'소갈비', a:['1/2인분','1인분(200g)','1인분 반']},
+    {n:'쇠고기 부산물(간, 곱창, 순대, 양 등)', a:['1/2인분','1인분(200g)','1인분 반']},
+    {n:'탕류(설렁탕, 곰탕, 갈비탕 등)', a:['반그릇','한그릇','한그릇 반']},
+    {n:'삼겹살', a:['1/2인분','1인분(200g)','1인분 반']},
+    {n:'돼지고기(불고기, 보쌈, 장조림, 족발 등)', a:['1/2인분','1인분','1인분 반']},
+    {n:'가공육(햄, 소시지, 스팸)', a:['비엔나소시지3개/스팸1/2조각','비엔나소시지5개/스팸1조각','비엔나소시지8개/스팸1.5조각']},
+    {n:'닭튀김/양념통닭', a:['2조각','4조각(240g)','6조각']},
+    {n:'닭고기(볶음, 조림, 구이, 백숙 등)', a:['1/2접시','1접시(80g)','1접시 반']},
+    {n:'계란/메추리알', a:['계란1/2개/메추리알3개','계란1개/메추리알5개','계란1.5개/메추리알8개'], sub:{q:'주로 드시는 계란의 형태는?', opts:['전란','난백(흰자만)','난황(노른자만)']}},
+  ]},
+  {name:'어류', items:[
+    {n:'생선회', a:['5점','10점(100g)','15점']},
+    {n:'흰살생선 프라이팬구이/튀김(갈치, 조기, 대구, 가자미, 명태, 북어 등)', a:['1/2토막','1토막(50g)','1토막 반']},
+    {n:'흰살생선 조림/찌개(갈치, 조기, 대구, 가자미, 명태, 북어 등)', a:['1/2토막','1토막(50g)','1토막 반']},
+    {n:'등푸른생선 구이/튀김(고등어, 삼치, 꽁치 등)', a:['1/2토막','1토막(50g)','1토막 반']},
+    {n:'등푸른생선 조림/찌개(고등어, 삼치, 꽁치 등)', a:['1/2토막','1토막(50g)','1토막 반']},
+    {n:'오징어/낙지/건오징어', a:['몸통 1/4','몸통 1/2(75g)','몸통 3/4']},
+    {n:'멸치, 멸치볶음(다시국물 제외)', a:['1/2큰술','1큰술','1큰술 반']},
+    {n:'통조림(참치, 꽁치, 고등어)', a:['작은캔 1/3개','작은캔 2/3개','작은캔 1개']},
+    {n:'굴/조개류(골뱅이 포함)', a:['종이컵 1/6컵','종이컵 1/3컵(70g)','종이컵 1/2컵']},
+    {n:'새우', a:['중하 1마리','중하 3마리(50g)','중하 5마리']},
+    {n:'어묵/게맛살', a:['1/3꼬치','2/3꼬치','1꼬치']},
+    {n:'젓갈류(게장 포함)', a:['1/2큰술','1큰술','1큰술 반']},
+  ]},
+  {name:'콩류 / 김치류', items:[
+    {n:'콩/콩자반(초콩포함, 콩밥 제외)', a:['1/2큰술','1큰술(10g)','1큰술 반']},
+    {n:'두부/순두부/연두부(찌개에 들어간 두부 포함)', a:['1/10모','1/5모(80g)','1/3모']},
+    {n:'된장국/된장찌개/청국장찌개', a:['1/2그릇','1그릇','1그릇 반']},
+    {n:'된장/쌈장(국, 찌개에 들어가는 것 제외)', a:['1/2큰술','1큰술','1큰술 반']},
+    {n:'배추김치(김치찌개, 김치국 포함)', a:['종이컵 1/4컵','종이컵 1/2컵(60g)','종이컵 3/4컵']},
+    {n:'깍두기/무김치/나박김치/동치미', a:['종이컵 1/4컵','종이컵 1/2컵(60g)','종이컵 3/4컵']},
+    {n:'장아찌', a:['마늘장아찌 기준 1쪽','마늘장아찌 기준 3쪽','마늘장아찌 기준 5쪽']},
+  ]},
+  {name:'과일 / 주스류', items:[
+    {n:'사과', seasonal:true, a:['1/3개(80g)','2/3개','1개']},
+    {n:'귤/오렌지', seasonal:true, a:['소 1개','소 3개','소 5개']},
+    {n:'바나나', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
+    {n:'딸기', seasonal:true, a:['중 5개','중 10개','중 15개']},
+    {n:'수박', seasonal:true, a:['중 1쪽(150g)','중 2쪽','중 3쪽']},
+    {n:'참외/멜론', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
+    {n:'복숭아/자두', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
+    {n:'감/곶감', seasonal:true, a:['중 1/2개(75g)','중 1개','중 1개 반']},
+    {n:'포도', seasonal:true, a:['1/4송이','1/2송이','3/4송이']},
+    {n:'배', seasonal:true, a:['중 1/6개','중 1/3개(150g)','중 1/2개']},
+    {n:'토마토/방울토마토/토마토주스', seasonal:true, a:['소 1개','소 2개','소 3개']},
+    {n:'과일주스(오렌지, 사과, 포도 등)', a:['1/2컵','1컵(200cc)','1컵 반']},
+  ]},
+  {name:'우유 및 유제품 / 음료류', items:[
+    {n:'우유(씨리얼과 함께 섭취하는 우유 포함)', a:['1/2컵','1컵(200cc)','1컵 반'], sub:{q:'주로 드시는 우유의 형태는?', opts:['보통우유','저지방 또는 무지방 우유']}},
+    {n:'요구르트', a:['1/2개','1개','1개 반'], sub:{q:'주로 드시는 요구르트의 형태는?', opts:['호상(발효유)','액상(야쿠르트)','호상, 액상 모두']}},
+    {n:'아이스크림', a:['1/3컵','1/2컵(100g)','2/3컵']},
+    {n:'치즈', a:['1/2장','1장(20g)','1장 반']},
+    {n:'두유', a:['1/2컵','1컵(200cc)','1컵 반']},
+    {n:'커피', a:['1잔','2잔','3잔'], sub:{q:'커피 추가 사항', opts2:[{q:'설탕을 넣습니까?',k:'sugar',opts:['예','아니오']},{q:'프림을 넣습니까?',k:'cream',opts:['예','아니오']}]}},
+    {n:'녹차', a:['1잔','2잔','3잔']},
+    {n:'청량음료(콜라, 사이다)', a:['1잔','2잔','3잔']},
+    {n:'기타음료(유자차, 알로에, 식혜, 대추차 등)', a:['1잔','2잔','3잔']},
+  ]},
+  {name:'주류 / 유지 / 당류', items:[
+    {n:'소주/청주(청하, 백세주 등)', a:['1-2잔','3-4잔','5잔 이상']},
+    {n:'맥주', a:['1-2잔','3-4잔','5잔 이상']},
+    {n:'양주', a:['1-2잔','3-4잔','5잔 이상']},
+    {n:'포도주/과실주', a:['1-2잔','3-4잔','5잔 이상']},
+    {n:'막걸리', a:['1-2잔','3-4잔','5잔 이상']},
+    {n:'쿠키/크래커/스낵', a:['쿠키1개/크래커3개/스낵1/6봉지','쿠키2개/크래커6개/스낵1/3봉지','쿠키3개/크래커9개/스낵1/2봉지']},
+    {n:'사탕/초콜릿', a:['사탕1개/초콜릿3조각','사탕2개/초콜릿6조각','사탕3개/초콜릿9조각']},
+    {n:'땅콩, 아몬드/호두/잣', a:['땅콩·아몬드12개/호두3개/잣1큰술','땅콩·아몬드24개/호두5개/잣2큰술','땅콩·아몬드36개/호두8개/잣3큰술']},
+    {n:'빵류(케이크, 도넛, 크림빵, 단팥빵 등)', a:['1/2개','1개','1개 반']},
+  ]},
+];
+
+var ANTI=['생선','두부','김치','사과','바나나','토마토','우유','녹차','포도','귤','딸기','복숭아','배','수박','참외','콩','오징어','새우','굴'];
+var PRO=['가공육','소주','맥주','양주','막걸리','청량음료','쿠키','빵류','사탕','초콜릿','라면','피자','햄버거','버터','마아가린'];
+var curSec=0, pid='', ANS={}, SUBS=[];
+
+function toMode(m){
+  document.getElementById('mp').className='mbtn'+(m==='patient'?' active':'');
+  document.getElementById('md').className='mbtn'+(m==='doctor'?' active':'');
+  m==='patient' ? showId() : showDoctor();
+}
+
+function showId(){
+  document.getElementById('main').innerHTML=
+    '<div class="card">'+
+      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">연구 참여자 번호 입력</div>'+
+      '<div style="font-size:13px;color:#888;margin-bottom:10px;">의료진이 알려드린 번호를 입력해 주세요</div>'+
+      '<input class="idinput" id="pidinput" placeholder="예: 001" maxlength="10"/>'+
+    '</div>'+
+    '<div style="background:#eff6ff;border-radius:12px;padding:1.25rem;margin-bottom:1rem;">'+
+      '<div style="font-size:13px;color:#1e40af;line-height:1.6;">지난 1년간 평균적으로 드신 식품과 양을 선택해 주세요.<br>총 7개 식품군, 약 10~15분 소요됩니다.</div>'+
+    '</div>'+
+    '<button class="bigbtn" onclick="startSurvey()">설문 시작하기</button>';
+}
+
+function startSurvey(){
+  var v=document.getElementById('pidinput').value.trim();
+  if(!v){alert('참여자 번호를 입력해 주세요.');return;}
+  pid=v; ANS={}; curSec=0; renderSec();
+}
+
+function renderSec(){
+  var sec=S[curSec];
+  var pct=Math.round(curSec/S.length*100);
+  var html=
+    '<div class="stepind">'+(curSec+1)+' / '+S.length+'</div>'+
+    '<div class="pbar"><div class="pfill" style="width:'+pct+'%"></div></div>'+
+    '<div class="stitle">'+sec.name+'</div>'+
+    '<div class="ssub">지난 1년간 평균 섭취 빈도와 1회 섭취 분량을 선택해 주세요</div>';
+
+  sec.items.forEach(function(item,idx){
+    var key=curSec+'_'+idx;
+    var d=ANS[key]||{};
+    var selF=d.freq||'';
+    var selA=d.amount||'';
+    var never=selF==='거의 안 먹음';
+
+    var incomplete = selF==='' || (!never && !selA);
+    html+='<div class="fitem" style="'+(incomplete&&selF!==''?'border-color:#ef4444;':'')+'">';
+    if(item.note) html+='<div class="note">★ '+item.note+'</div>';
+    html+='<div class="fname">'+item.n+'</div>';
+
+    // [계절 과일] 드시는 계절 체크
+    if(item.seasonal){
+      html+='<div class="flabel">드시는 계절 (해당되는 계절 모두 선택)</div>'+
+            '<div class="season-row">';
+      SEASONS.forEach(function(s){
+        var checked=d.seasons&&d.seasons[s.key];
+        html+='<button class="sbtn'+(checked?' '+s.cls:'')+'" onclick="toggleSeason(\''+key+'\',\''+s.key+'\')">'+s.label+'</button>';
+      });
+      html+='</div><div class="divider"></div>';
+    }
+
+    // 섭취 빈도 (공통)
+    html+='<div class="flabel">섭취 빈도</div><div class="fbtns">';
+    FREQS.forEach(function(f){
+      html+='<button class="fbtn'+(selF===f?' sel':'')+'" onclick="pickFreq(\''+key+'\',\''+f+'\')">'+f+'</button>';
+    });
+    html+='</div>';
+
+    // 1회 섭취량 (공통 — 빈도 선택 후 거의 안 먹음이 아닐 때)
+    if(selF && !never){
+      html+='<div class="flabel">1회 섭취량</div><div class="abtns">';
+      item.a.forEach(function(a){
+        var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        html+='<button class="abtn'+(selA===a?' sel':'')+'" onclick="pickAmt(\''+key+'\',\''+aEsc+'\')">'+a+'</button>';
+      });
+      html+='</div>';
+    }
+
+    // 세부 질문 (밥 종류, 계란 형태, 우유 형태, 요구르트 형태)
+    if(item.sub && selF && !never){
+      if(item.sub.opts){
+        var selSub=d.sub||'';
+        html+='<div class="subq">'+
+          '<div class="subq-label">★ '+item.sub.q+'</div>'+
+          '<div class="subq-btns">';
+        item.sub.opts.forEach(function(o){
+          var oEsc=o.replace(/'/g,"\\'");
+          html+='<button class="sqbtn'+(selSub===o?' sel':'')+'" onclick="pickSub(\''+key+'\',\''+oEsc+'\')">'+o+'</button>';
+        });
+        html+='</div></div>';
+      }
+      // 커피 설탕/프림
+      if(item.sub.opts2){
+        item.sub.opts2.forEach(function(sq){
+          var selSub=d[sq.k]||'';
+          html+='<div class="subq">'+
+            '<div class="subq-label">★ '+sq.q+'</div>'+
+            '<div class="subq-btns">';
+          sq.opts.forEach(function(o){
+            var oEsc=o.replace(/'/g,"\\'");
+            html+='<button class="sqbtn'+(selSub===o?' sel':'')+'" onclick="pickSubKey(\''+key+'\',\''+sq.k+'\',\''+oEsc+'\')">'+o+'</button>';
+          });
+          html+='</div></div>';
+        });
+      }
+    }
+
+    html+='</div>';
+  });
+
+  html+='<div class="navbtns">'+
+    (curSec>0?'<button class="navbtn" onclick="goPrev()">← 이전</button>':'')+
+    '<button class="navbtn pr" onclick="goNext()">'+(curSec<S.length-1?'다음 →':'제출하기')+'</button>'+
+    '</div>';
+  document.getElementById('main').innerHTML=html;
+}
+
+function pickSub(key,v){
+  if(!ANS[key]) ANS[key]={};
+  ANS[key].sub=v;
+  renderSec();
+}
+function pickSubKey(key,k,v){
+  if(!ANS[key]) ANS[key]={};
+  ANS[key][k]=v;
+  renderSec();
+}
+function toggleSeason(key,sk){
+  if(!ANS[key]) ANS[key]={};
+  if(!ANS[key].seasons) ANS[key].seasons={};
+  ANS[key].seasons[sk]=!ANS[key].seasons[sk];
+  renderSec();
+}
+function pickFreq(key,f){
+  if(!ANS[key]) ANS[key]={};
+  ANS[key].freq=f;
+  if(f==='거의 안 먹음') ANS[key].amount=null;
+  renderSec();
+}
+function pickAmt(key,a){
+  if(!ANS[key]) ANS[key]={};
+  ANS[key].amount=a;
+  renderSec();
+}
+function goPrev(){if(curSec>0){curSec--;renderSec();window.scrollTo(0,0);}}
+function goNext(){
+  // 미완료 항목 체크
+  var sec=S[curSec];
+  var missing=[];
+  sec.items.forEach(function(item,idx){
+    var key=curSec+'_'+idx;
+    var a=ANS[key]||{};
+    // 섭취빈도 필수
+    if(!a.freq){
+      missing.push(item.n);
+      return;
+    }
+    // 거의 안 먹음이면 이하 불필요
+    if(a.freq==='거의 안 먹음') return;
+    // 1회 섭취량 필수
+    if(!a.amount){
+      missing.push(item.n+' (1회 섭취량)');
+      return;
+    }
+  });
+  if(missing.length>0){
+    alert('아직 선택하지 않은 항목이 있어요:\n\n• '+missing.slice(0,5).join('\n• ')+(missing.length>5?'\n• 외 '+(missing.length-5)+'개':''));
+    return;
+  }
+  if(curSec<S.length-1){curSec++;renderSec();window.scrollTo(0,0);}
+  else{submitSurvey();}
+}
+
+function calcDII(){
+  var score=0,count=0;
+  S.forEach(function(sec,si){
+    sec.items.forEach(function(item,idx){
+      var key=si+'_'+idx,a=ANS[key];
+      if(!a||!a.freq||a.freq==='거의 안 먹음') return;
+      count++;
+      var fpd=FSCORES[FREQS.indexOf(a.freq)];
+      var c=0;
+      ANTI.forEach(function(x){if(item.n.indexOf(x)>=0) c=-0.28;});
+      PRO.forEach(function(x){if(item.n.indexOf(x)>=0) c=0.35;});
+      score+=c*fpd*7;
+    });
+  });
+  return {score:parseFloat(score.toFixed(2)),count:count};
+}
+
+function submitSurvey(){
+  var r=calcDII();
+  SUBS.push({pid:pid,time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),ans:JSON.parse(JSON.stringify(ANS)),dii:r.score,count:r.count});
+  var lv=r.score>1?'염증 촉진':r.score>0?'중간':'항염증';
+  var bc=r.score>1?'background:#fde8e8;color:#9b1c1c':r.score>0?'background:#fef3c7;color:#92400e':'background:#def7ec;color:#03543f';
+  document.getElementById('main').innerHTML=
+    '<div style="text-align:center;padding:2rem 0 1rem;">'+
+      '<div style="font-size:48px;">✅</div>'+
+      '<div style="font-size:20px;font-weight:600;color:#111;margin-top:12px;">설문이 완료되었습니다</div>'+
+      '<div style="font-size:14px;color:#888;margin-top:4px;">참여자 번호: '+pid+'</div>'+
+    '</div>'+
+    '<div class="card" style="text-align:center;">'+
+      '<div style="font-size:13px;color:#888;margin-bottom:4px;">식이염증지수 (DII)</div>'+
+      '<div style="font-size:40px;font-weight:600;color:#111;padding:0.5rem 0;">'+(r.score>0?'+':'')+r.score+'</div>'+
+      '<span class="badge" style="'+bc+'">'+lv+'</span>'+
+      '<div style="font-size:12px;color:#888;margin-top:8px;">음수: 항염증 식단 / 양수: 염증 촉진 식단</div>'+
+    '</div>'+
+    '<button class="bigbtn" onclick="restart()">새 설문 시작</button>';
+}
+
+function restart(){curSec=0;pid='';ANS={};showId();}
+
+function showDoctor(){
+  if(!SUBS.length){
+    document.getElementById('main').innerHTML=
+      '<div style="text-align:center;padding:3rem 1rem;color:#888;">'+
+        '<div style="font-size:40px;margin-bottom:12px;">📋</div>'+
+        '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">제출된 설문이 없습니다</div>'+
+        '<div style="font-size:13px;">환자 모드에서 설문 완료 후 확인하세요</div>'+
+      '</div>';
+    return;
+  }
+  var html='<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:1rem;">제출된 설문 ('+SUBS.length+'건)</div>'+
+    '<div class="card" style="padding:0 1.25rem;">';
+  SUBS.forEach(function(s,i){
+    var lv=s.dii>1?'염증 촉진':s.dii>0?'중간':'항염증';
+    var bc=s.dii>1?'background:#fde8e8;color:#9b1c1c':s.dii>0?'background:#fef3c7;color:#92400e':'background:#def7ec;color:#03543f';
+    html+='<div class="prow" onclick="showDetail('+i+')">'+
+      '<div>'+
+        '<div style="font-size:14px;font-weight:600;color:#111;">참여자 '+s.pid+'</div>'+
+        '<div style="font-size:12px;color:#888;">'+s.time+' · '+s.count+'개 항목 응답</div>'+
+      '</div>'+
+      '<div style="display:flex;align-items:center;gap:8px;">'+
+        '<span style="font-size:14px;font-weight:600;">DII '+(s.dii>0?'+':'')+s.dii+'</span>'+
+        '<span class="badge" style="'+bc+'">'+lv+'</span>'+
+      '</div>'+
+    '</div>';
+  });
+  html+='</div>';
+  document.getElementById('main').innerHTML=html;
+}
+
+function showDetail(i){
+  var s=SUBS[i];
+  var lv=s.dii>1?'염증 촉진':s.dii>0?'중간':'항염증';
+  var bc=s.dii>1?'background:#fde8e8;color:#9b1c1c':s.dii>0?'background:#fef3c7;color:#92400e':'background:#def7ec;color:#03543f';
+  var SCOLS={spring:'#059669',summer:'#d97706',fall:'#b45309',winter:'#2563eb'};
+  var SBGS={spring:'#ecfdf5',summer:'#fffbeb',fall:'#fef3c7',winter:'#eff6ff'};
+  var SLABELS={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'};
+  var html=
+    '<button onclick="showDoctor()" style="background:none;border:none;color:#1a56db;font-size:14px;cursor:pointer;margin-bottom:1rem;padding:0;">← 목록으로</button>'+
+    '<div class="card" style="text-align:center;">'+
+      '<div style="font-size:13px;color:#888;margin-bottom:4px;">참여자 '+s.pid+' · '+s.time+'</div>'+
+      '<div style="font-size:38px;font-weight:600;color:#111;padding:0.5rem 0;">'+(s.dii>0?'+':'')+s.dii+'</div>'+
+      '<span class="badge" style="'+bc+'">'+lv+'</span>'+
+      '<div style="font-size:12px;color:#888;margin-top:8px;">음수: 항염증 식단 / 양수: 염증 촉진 식단</div>'+
+    '</div>'+
+    '<div class="card">'+
+      '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">식품별 응답 내역</div>';
+
+  S.forEach(function(sec,si){
+    var has=sec.items.some(function(item,idx){
+      var a=s.ans[si+'_'+idx];
+      return a&&a.freq;
+    });
+    if(!has) return;
+    html+='<div style="font-size:12px;font-weight:600;color:#1a56db;background:#eff6ff;border-radius:6px;padding:4px 8px;margin:10px 0 6px;">'+sec.name+'</div>';
+    sec.items.forEach(function(item,idx){
+      var a=s.ans[si+'_'+idx];
+      if(!a||!a.freq||a.freq==='거의 안 먹음') return;
+      html+='<div class="nrow">'+
+        '<div style="flex:1;padding-right:8px;">'+
+          '<div style="color:#555;line-height:1.4;font-size:13px;">'+item.n+'</div>';
+      // 계절 배지
+      if(item.seasonal&&a.seasons){
+        html+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
+        Object.keys(a.seasons).forEach(function(sk){
+          if(a.seasons[sk]){
+            html+='<span style="font-size:11px;padding:2px 7px;border-radius:999px;background:'+SBGS[sk]+';color:'+SCOLS[sk]+';border:1px solid '+SCOLS[sk]+'50;">'+SLABELS[sk]+'</span>';
+          }
+        });
+        html+='</div>';
+      }
+      // 세부 질문 응답
+      if(item.sub){
+        if(item.sub.opts&&a.sub){
+          html+='<div style="font-size:11px;color:#7c3aed;margin-top:3px;">→ '+a.sub+'</div>';
+        }
+        if(item.sub.opts2){
+          item.sub.opts2.forEach(function(sq){
+            if(a[sq.k]) html+='<div style="font-size:11px;color:#7c3aed;margin-top:2px;">'+sq.q+' '+a[sq.k]+'</div>';
+          });
+        }
+      }
+      html+='</div>'+
+        '<div style="text-align:right;white-space:nowrap;">'+
+          '<div style="color:#111;font-size:12px;">'+a.freq+'</div>'+
+          (a.amount?'<div style="color:#888;font-size:11px;">'+a.amount+'</div>':'')+
+        '</div>'+
+      '</div>';
+    });
+  });
+  html+='</div>';
+  document.getElementById('main').innerHTML=html;
+}
+
+showId();
+</script>
+</body>
+</html>
