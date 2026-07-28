@@ -2,8 +2,8 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>IBD 식단 설문조사</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>식단 설문조사</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sans-serif; background: #f3f4f6; min-height: 100vh; }
@@ -56,369 +56,449 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sa
 .subq-btns { display: flex; flex-wrap: wrap; gap: 6px; }
 .sqbtn { padding: 6px 12px; border-radius: 8px; border: 1px solid #ccc; background: #fff; color: #555; font-size: 12px; cursor: pointer; }
 .sqbtn.sel { background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 600; }
+
+
+.abtn.sel, .fbtn.sel { background:#1a56db; color:#fff; border-color:#1a56db; }
+.amtbtn { flex:1; padding:9px 4px; border:1px solid #d1d5db; border-radius:8px; background:#fff; font-size:13px; cursor:pointer; text-align:center; }
+.amtbtn.sel { background:#1a56db; color:#fff; border-color:#1a56db; }
+.fbtn2 { display:inline-block; padding:7px 12px; border:1px solid #d1d5db; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; margin:2px; }
+.fbtn2.sel { background:#1a56db; color:#fff; border-color:#1a56db; }
+.seasonbtn { flex:1; padding:8px 4px; border:1px solid #d1d5db; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; text-align:center; }
+.seasonbtn.sel { background:#059669; color:#fff; border-color:#059669; }
+.qcard { background:#fff; border-radius:12px; padding:1rem 1.25rem; margin-bottom:0.75rem; border:1px solid #e5e7eb; }
+.progress { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin-bottom:1rem; }
+.progress > div { height:100%; background:#1a56db; transition:width 0.3s; }
+
 </style>
 </head>
 <body>
 <div class="wrap">
   <div class="hdr">
     <div>
-      <div class="hdr-title">식단 설문조사</div>
-      <div class="hdr-sub">IBD 코호트 연구 · 가톨릭대학교 여의도성모병원</div>
+      <div class="hdr-title" style="font-size:18px;font-weight:700;color:#111;">식단 설문조사</div>
+      <div class="hdr-sub" style="font-size:12px;color:#888;margin-top:2px;">IBD 코호트 연구 · 반정량 식품섭취빈도조사(112문항)</div>
     </div>
-    <div class="mtgl">
-      <button class="mbtn active" id="mp" onclick="toMode('patient')">환자</button>
-      <button class="mbtn" id="md" onclick="toMode('doctor')">의사</button>
+    <div class="mtgl" style="margin-left:auto;display:flex;gap:6px;">
+      <button class="mbtn active" id="mode-patient" onclick="setMode('patient')">환자</button>
+      <button class="mbtn" id="mode-doctor" onclick="setMode('doctor')">의사</button>
     </div>
   </div>
   <div id="main"></div>
 </div>
-
 <script>
-var FREQS=['거의 안 먹음','월 1회','월 2-3회','주 1-2회','주 3-4회','주 5-6회','매일 1회','매일 2회','매일 3회+'];
-var FSCORES=[0,1/30,2.5/30,1.5/7,3.5/7,5.5/7,1,2,3];
-var SEASONS=[
-  {key:'spring', label:'🌸 봄', cls:'sel-spring'},
-  {key:'summer', label:'☀️ 여름', cls:'sel-summer'},
-  {key:'fall',   label:'🍂 가을', cls:'sel-fall'},
-  {key:'winter', label:'❄️ 겨울', cls:'sel-winter'},
-];
+var FREQS=['거의 안 먹음','월 1회','월 2-3회','주 1회','주 2-4회','주 5-6회','매일 1회','매일 2회','매일 3회'];
+var FSCORES=[0,1/30.4,2.5/30.4,1/7,3/7,5.5/7,1,2,3];
+var AMT_RATIO={3:[0.5,1,1.5],4:[0.5,1,1.5,2]};
 
 var NUTRI={
-  "밥":{p:[144,31.7,0.0,0.3,2.5,0.3],g:210},
-  "식빵/샌드위치/토스트":{p:[280,50.0,6.0,4.0,9.0,2.5],g:70},
-  "잼/꿀/시럽":{p:[257,63.0,58.0,0.1,0.3,0.4],g:20},
-  "버터/마아가린":{p:[720,0.5,0.5,80.0,0.6,0.0],g:10},
-  "떡":{p:[214,47.0,0.5,0.4,3.6,0.6],g:50},
-  "칼국수/우동/냉면/짜장면/짬뽕/국수장국/스파게티":{p:[105,20.0,0.5,1.2,3.5,1.0],g:550},
-  "떡국/만두/만두국":{p:[120,20.0,0.5,2.5,4.5,1.0],g:550},
-  "라면":{p:[120,18.0,0.5,4.5,3.0,1.2],g:550},
-  "씨리얼/콘푸레이크(우유 제외)":{p:[382,84.0,32.0,1.0,7.0,3.0],g:30},
-  "선식/미숫가루/생식":{p:[380,72.0,5.0,6.0,14.0,6.0],g:40},
-  "피자/햄버거":{p:[265,30.0,4.0,11.0,11.0,2.0],g:200},
-  "감자(찐감자, 감자튀김, 감자국 등)":{p:[66,14.4,0.8,0.1,1.9,1.7],g:130},
-  "고구마(찐고구마, 맛탕 등)":{p:[128,31.0,7.0,0.2,1.4,2.4],g:130},
-  "쇠고기구이(등심, 안심, 불고기 등)":{p:[220,0.5,0.0,14.0,20.0,0.0],g:200},
-  "소갈비":{p:[280,2.0,1.0,20.0,18.0,0.0],g:200},
-  "쇠고기 부산물(간, 곱창, 순대, 양 등)":{p:[150,5.0,0.5,7.0,17.0,0.0],g:200},
-  "탕류(설렁탕, 곰탕, 갈비탕 등)":{p:[45,1.0,0.0,2.5,4.5,0.1],g:500},
-  "삼겹살":{p:[380,0.3,0.0,35.0,17.0,0.0],g:200},
-  "돼지고기(불고기, 보쌈, 장조림, 족발 등)":{p:[240,3.0,1.5,15.0,22.0,0.0],g:150},
-  "가공육(햄, 소시지, 스팸)":{p:[290,3.0,1.5,24.0,14.0,0.0],g:40},
-  "닭튀김/양념통닭":{p:[250,12.0,3.0,14.0,18.0,0.5],g:240},
-  "닭고기(볶음, 조림, 구이, 백숙 등)":{p:[165,2.0,0.5,7.0,24.0,0.1],g:80},
-  "계란/메추리알":{p:[143,0.9,0.5,9.5,12.5,0.0],g:50},
-  "생선회":{p:[105,0.3,0.0,1.5,21.0,0.0],g:100},
-  "흰살생선 프라이팬구이/튀김(갈치, 조기, 대구, 가자미, 명태, 북어 등)":{p:[150,1.0,0.0,7.0,20.0,0.1],g:50},
-  "흰살생선 조림/찌개(갈치, 조기, 대구, 가자미, 명태, 북어 등)":{p:[110,3.0,1.0,4.0,15.0,0.3],g:50},
-  "등푸른생선 구이/튀김(고등어, 삼치, 꽁치 등)":{p:[200,0.5,0.0,13.0,20.0,0.0],g:50},
-  "등푸른생선 조림/찌개(고등어, 삼치, 꽁치 등)":{p:[160,3.0,1.5,9.0,16.0,0.4],g:50},
-  "오징어/낙지/건오징어":{p:[87,1.0,0.0,1.4,18.0,0.0],g:75},
-  "멸치, 멸치볶음(다시국물 제외)":{p:[210,5.0,3.0,8.0,25.0,0.2],g:10},
-  "통조림(참치, 꽁치, 고등어)":{p:[190,0.5,0.0,10.0,24.0,0.0],g:60},
-  "굴/조개류(골뱅이 포함)":{p:[80,4.0,0.5,2.0,10.0,0.0],g:70},
-  "새우":{p:[90,0.5,0.0,1.0,18.0,0.0],g:50},
-  "어묵/게맛살":{p:[110,10.0,3.0,3.0,11.0,0.3],g:30},
-  "젓갈류(게장 포함)":{p:[110,4.0,1.0,3.0,15.0,0.0],g:15},
-  "콩/콩자반(초콩포함, 콩밥 제외)":{p:[280,35.0,4.0,7.0,18.0,5.0],g:10},
-  "두부/순두부/연두부(찌개에 들어간 두부 포함)":{p:[90,3.0,0.5,5.0,9.0,2.0],g:80},
-  "된장국/된장찌개/청국장찌개":{p:[50,4.0,1.0,1.5,4.0,1.2],g:400},
-  "된장/쌈장(국, 찌개에 들어가는 것 제외)":{p:[175,20.0,5.0,5.0,12.0,5.0],g:10},
-  "배추김치(김치찌개, 김치국 포함)":{p:[35,6.0,3.0,0.5,2.0,2.5],g:60},
-  "깍두기/무김치/나박김치/동치미":{p:[33,6.0,2.5,0.3,1.4,1.8],g:60},
-  "장아찌":{p:[80,14.0,7.0,0.5,2.0,2.0],g:15},
-  "사과":{p:[53,14.4,11.1,0.1,0.2,2.7],g:200},
-  "귤/오렌지":{p:[47,12.0,9.0,0.1,0.7,1.8],g:100},
-  "바나나":{p:[93,21.9,16.0,0.2,1.2,1.9],g:100},
-  "딸기":{p:[34,7.7,5.5,0.2,0.8,1.6],g:150},
-  "수박":{p:[31,7.2,6.0,0.1,0.7,0.2],g:300},
-  "참외/멜론":{p:[38,8.9,7.5,0.1,1.0,1.0],g:200},
-  "복숭아/자두":{p:[43,10.5,8.5,0.1,0.6,1.5],g:200},
-  "감/곶감":{p:[70,17.0,13.0,0.1,0.5,3.5],g:150},
-  "포도":{p:[57,14.9,13.0,0.2,0.5,0.4],g:100},
-  "배":{p:[51,13.0,8.5,0.1,0.3,1.9],g:200},
-  "토마토/방울토마토/토마토주스":{p:[19,4.5,3.5,0.1,0.9,1.2],g:150},
-  "과일주스(오렌지, 사과, 포도 등)":{p:[45,10.5,9.0,0.1,0.5,0.2],g:200},
-  "우유(씨리얼과 함께 섭취하는 우유 포함)":{p:[65,4.8,4.8,3.5,3.1,0.0],g:200},
-  "요구르트":{p:[80,13.0,11.0,1.5,3.5,0.0],g:100},
-  "아이스크림":{p:[190,23.0,20.0,10.0,3.5,0.5],g:100},
-  "치즈":{p:[300,2.0,0.5,23.0,20.0,0.0],g:20},
-  "두유":{p:[54,6.0,5.0,1.8,3.5,0.6],g:200},
-  "커피":{p:[50,10.0,6.0,1.0,0.8,0.0],g:12},
-  "녹차":{p:[1,0.2,0.0,0.0,0.2,0.0],g:200},
-  "청량음료(콜라, 사이다)":{p:[42,10.5,10.5,0.0,0.0,0.0],g:200},
-  "기타음료(유자차, 알로에, 식혜, 대추차 등)":{p:[55,13.5,11.0,0.0,0.1,0.3],g:200},
-  "소주/청주(청하, 백세주 등)":{p:[141,0.0,0.0,0.0,0.0,0.0],g:150},
-  "맥주":{p:[46,3.4,0.0,0.0,0.5,0.0],g:500},
-  "양주":{p:[250,0.0,0.0,0.0,0.0,0.0],g:45},
-  "포도주/과실주":{p:[82,2.6,0.6,0.0,0.1,0.0],g:150},
-  "막걸리":{p:[54,1.6,0.0,0.0,1.4,0.0],g:300},
-  "쿠키/크래커/스낵":{p:[480,60.0,20.0,22.0,6.0,2.0],g:30},
-  "사탕/초콜릿":{p:[520,60.0,52.0,28.0,5.0,2.0],g:30},
-  "땅콩, 아몬드/호두/잣":{p:[600,20.0,5.0,50.0,20.0,9.0],g:15},
-  "빵류(케이크, 도넛, 크림빵, 단팥빵 등)":{p:[330,45.0,18.0,14.0,6.0,2.0],g:80},
+  "쌀밥":{p:[166.0,37.33,0.02,0.32,3.36,0.1],g:210},
+  "잡곡밥(콩밥 포함)":{p:[163.0,35.53,0.05,0.43,3.74,1.95],g:210},
+  "비빔밥, 볶음밥":{p:[120.0,20.55,1.02,2.72,4.3,1.2],g:400},
+  "김밥":{p:[169.0,25.78,0.21,4.41,5.77,1.8],g:200},
+  "카레라이스":{p:[102.0,18.7,1.11,1.62,2.75,0.75],g:400},
+  "라면, 컵라면":{p:[79.0,11.4,0.5,2.9,1.9,0.9],g:500},
+  "국수, 칼국수, 우동":{p:[73.0,14.0,0.4,0.6,2.8,0.8],g:500},
+  "짜장면, 짬뽕":{p:[120.0,20.0,1.5,2.8,3.8,1.3],g:400},
+  "냉면":{p:[94.0,18.5,1.4,0.9,4.0,1.1],g:450},
+  "떡국":{p:[86.0,16.4,0.1,0.5,3.4,0.4],g:500},
+  "만두(찐만두, 군만두)":{p:[155.5,16.42,0.46,4.61,7.03,2.7],g:150},
+  "식빵":{p:[280.0,50.0,6.0,4.0,9.0,2.5],g:70},
+  "버터, 마아가린":{p:[720.0,0.5,0.5,80.0,0.6,0.0],g:10},
+  "잼":{p:[257.0,63.0,58.0,0.1,0.3,0.4],g:10},
+  "단팥빵, 호빵, 크림빵":{p:[383.0,46.23,11.99,18.41,8.18,2.6],g:80},
+  "카스테라, 케이크, 초코파이":{p:[308.0,29.29,19.64,18.7,4.6,1.15],g:60},
+  "피자":{p:[252.5,26.51,3.87,11.19,12.41,2.3],g:200},
+  "햄버거, 샌드위치":{p:[248.5,21.67,3.87,10.34,9.98,1.6],g:200},
+  "백설기, 시루떡, 인절미, 절편":{p:[244.0,44.8,11.25,2.0,5.49,2.05],g:60},
+  "떡볶이":{p:[150.0,26.45,4.3,1.86,4.09,1.0],g:200},
+  "시리얼":{p:[382.0,84.0,32.0,1.0,7.0,3.0],g:30},
+  "설렁탕, 곰탕, 사골국":{p:[38.0,2.3,0.09,1.18,4.91,0.9],g:250},
+  "감자탕":{p:[65.0,3.37,0.42,3.34,4.59,1.3],g:250},
+  "추어탕":{p:[43.0,2.88,0.0,2.25,2.75,2.05],g:250},
+  "동태찌개, 해물매운탕":{p:[44.5,2.42,0.21,1.32,5.98,1.4],g:250},
+  "미역국":{p:[14.5,0.92,0.01,0.52,1.75,0.6],g:250},
+  "쇠고기국, 육개장, 무국":{p:[25.0,1.45,0.67,0.7,3.21,0.95],g:250},
+  "북어국":{p:[27.0,0.97,0.3,0.73,4.1,0.3],g:250},
+  "된장국":{p:[22.0,2.12,0.48,0.63,1.59,0.85],g:250},
+  "된장찌개, 청국장찌개":{p:[40.0,3.83,0.84,1.04,3.5,1.6],g:200},
+  "김치찌개, 김치볶음":{p:[61.0,3.54,1.2,3.47,3.59,2.1],g:250},
+  "부대찌개":{p:[95.0,8.45,0.6,4.79,4.46,1.9],g:250},
+  "두부찌개, 순두부찌개":{p:[53.5,2.79,0.44,1.79,4.29,1.4],g:200},
+  "두부, 두부조림, 두부부침":{p:[144.0,5.1,1.51,9.37,11.5,3.2],g:80},
+  "콩조림":{p:[268.0,22.36,5.04,7.73,13.5,7.3],g:15},
+  "달걀후라이, 달걀말이":{p:[208.0,4.83,0.03,13.78,13.3,1.2],g:50},
+  "삶은 달걀, 달걀찜":{p:[97.0,2.42,0.41,6.04,6.61,0.2],g:50},
+  "돼지고기 삼겹살구이":{p:[403.0,10.25,3.8,32.83,14.21,2.3],g:150},
+  "돼지고기 삶은고기(수육, 보쌈)":{p:[116.0,3.73,1.69,4.2,6.65,2.3],g:150},
+  "제육볶음, 돼지불고기, 돼지갈비구이, 돼지갈비찜":{p:[194.5,7.77,2.09,13.25,13.04,2.55],g:150},
+  "돼지고기 탕수육, 돈까스":{p:[302.0,17.13,1.83,18.68,13.85,1.3],g:150},
+  "쇠고기 생고기구이":{p:[319.0,0.26,0.0,26.79,15.9,0.1],g:150},
+  "쇠고기 불고기":{p:[182.0,9.05,3.34,9.66,10.33,2.5],g:150},
+  "햄":{p:[290.0,3.0,1.5,24.0,14.0,0.0],g:50},
+  "순대":{p:[139.5,17.92,0.71,3.88,4.4,2.4],g:100},
+  "삼계탕(닭백숙)":{p:[101.0,3.84,0.45,4.8,10.68,1.6],g:400},
+  "닭볶음(닭갈비), 닭조림(닭도리탕)":{p:[132.0,10.93,3.53,5.37,10.95,1.35],g:200},
+  "치킨(닭튀김)":{p:[270.0,12.15,2.08,9.79,20.04,0.8],g:120},
+  "오리고기 로스구이":{p:[276.0,4.86,0.26,17.43,20.64,0.65],g:150},
+  "고등어, 꽁치(구이, 조림)":{p:[192.5,4.5,3.56,13.36,13.38,2.45],g:50},
+  "갈치, 조기(구이, 조림)":{p:[157.5,0.71,0.0,8.56,20.43,1.3],g:50},
+  "멸치, 멸치볶음":{p:[276.0,13.62,9.02,10.84,28.24,6.5],g:10},
+  "오징어(생것, 삶은것, 볶음), 오징어채, 마른 오징어":{p:[128.0,9.84,4.55,6.52,10.28,2.0],g:75},
+  "게장":{p:[97.0,8.07,4.21,1.31,12.24,1.8],g:15},
+  "새우젓, 오징어젓, 조개젓":{p:[60.0,2.54,0.78,1.71,5.95,1.0],g:10},
+  "어묵(볶음, 국)":{p:[152.0,17.2,1.26,6.41,6.33,2.2],g:60},
+  "콩나물(무침, 국), 숙주나물":{p:[35.0,2.96,0.5,1.58,2.22,1.7],g:50},
+  "시금치나물":{p:[69.0,3.36,0.1,4.46,3.74,2.0],g:50},
+  "도라지(생채, 나물)":{p:[119.0,16.15,5.25,1.11,2.48,4.9],g:50},
+  "호박(나물, 전)":{p:[130.5,8.73,2.11,8.68,4.33,3.35],g:50},
+  "고사리나물, 취나물, 가지나물 등 기타 나물":{p:[89.0,6.28,0.5,5.4,3.08,5.6],g:50},
+  "오이(생채, 생오이)":{p:[36.0,6.29,3.17,0.56,1.3,1.5],g:50},
+  "무(생채, 단무지, 무말랭이)":{p:[50.0,7.33,4.04,1.11,2.43,4.9],g:50},
+  "채소샐러드":{p:[145.0,5.1,4.72,10.3,2.69,1.9],g:100},
+  "파무침, 부추무침":{p:[71.0,9.08,7.08,2.81,2.31,3.5],g:50},
+  "쌈채소(상추, 깻잎, 배추, 호박잎), 풋고추":{p:[15.0,2.8,1.0,0.2,1.3,1.6],g:30},
+  "삶은 브로콜리, 삶은 양배추":{p:[30.0,5.5,2.0,0.3,2.5,3.0],g:50},
+  "마늘":{p:[132.0,28.4,1.0,0.5,6.4,4.5],g:8},
+  "쌈장(고추장, 된장, 혼합장), 초고추장":{p:[175.0,20.0,5.0,5.0,12.0,5.0],g:10},
+  "배추김치":{p:[38.0,6.29,2.39,0.56,1.86,3.45],g:50},
+  "기타 김치, 겉절이":{p:[54.5,6.03,2.76,1.71,2.23,2.45],g:50},
+  "장아찌(고추, 마늘, 깻잎, 양파, 무), 오이피클":{p:[113.0,21.85,9.62,0.76,2.39,2.65],g:15},
+  "연근조림, 우엉조림":{p:[181.0,32.11,15.61,4.21,3.74,4.2],g:50},
+  "부침개류(부추전, 김치전 등)":{p:[167.0,19.01,0.82,4.23,4.63,2.4],g:50},
+  "잡채":{p:[146.0,24.26,1.05,3.42,4.02,3.0],g:100},
+  "버섯볶음":{p:[92.5,7.69,3.24,5.1,3.0,4.4],g:50},
+  "김구이, 생김, 김무침":{p:[470.0,29.0,0.2,30.2,20.4,24.0],g:2},
+  "파래무침, 미역초무침":{p:[49.0,5.24,1.73,1.02,2.19,3.5],g:50},
+  "미역줄기볶음":{p:[83.0,4.25,0.84,6.89,0.99,4.05],g:50},
+  "감자볶음, 감자조림":{p:[100.0,13.05,1.21,3.09,2.04,1.8],g:50},
+  "찐감자, 군감자":{p:[66.0,14.4,0.8,0.1,1.9,1.7],g:130},
+  "찐고구마, 군고구마":{p:[128.0,31.0,7.0,0.2,1.4,2.4],g:130},
+  "찐옥수수, 군옥수수":{p:[106.0,22.0,4.5,1.5,3.7,2.7],g:130},
+  "우유(일반, 저지방)":{p:[65.0,4.8,4.8,3.5,3.1,0.0],g:200},
+  "액상요구르트":{p:[65.0,14.0,13.0,0.5,1.5,0.0],g:80},
+  "호상요구르트(떠먹는 요구르트)":{p:[80.0,13.0,11.0,1.5,3.5,0.0],g:100},
+  "두유":{p:[54.0,6.0,5.0,1.8,3.5,0.6],g:200},
+  "딸기":{p:[34.0,7.7,5.5,0.2,0.8,1.6],g:150},
+  "토마토, 방울토마토":{p:[19.0,4.5,3.5,0.1,0.9,1.2],g:150},
+  "참외":{p:[38.0,8.9,7.5,0.1,1.0,1.0],g:200},
+  "수박":{p:[31.0,7.2,6.0,0.1,0.7,0.2],g:300},
+  "복숭아":{p:[43.0,10.5,8.5,0.1,0.6,1.5],g:200},
+  "포도":{p:[57.0,14.9,13.0,0.2,0.5,0.4],g:100},
+  "사과":{p:[53.0,14.4,11.1,0.1,0.2,2.7],g:200},
+  "배":{p:[51.0,13.0,8.5,0.1,0.3,1.9],g:200},
+  "감, 곶감":{p:[70.0,17.0,13.0,0.1,0.5,3.5],g:150},
+  "귤":{p:[47.0,12.0,9.0,0.1,0.7,1.8],g:100},
+  "바나나":{p:[93.0,21.9,16.0,0.2,1.2,1.9],g:100},
+  "오렌지":{p:[47.0,11.8,9.4,0.1,0.9,2.4],g:150},
+  "키위":{p:[61.0,15.0,9.0,0.5,1.1,2.6],g:100},
+  "커피":{p:[50.0,10.0,6.0,1.0,0.8,0.0],g:12},
+  "프림":{p:[540.0,55.0,0.0,35.0,2.0,0.0],g:3},
+  "설탕":{p:[387.0,99.8,99.8,0.0,0.0,0.0],g:5},
+  "녹차":{p:[1.0,0.2,0.0,0.0,0.2,0.0],g:200},
+  "탄산음료(콜라, 사이다, 과일탄산음료)":{p:[42.0,10.5,10.5,0.0,0.0,0.0],g:200},
+  "과일주스":{p:[45.0,10.5,9.0,0.1,0.5,0.2],g:200},
+  "미숫가루음료, 식혜":{p:[55.0,13.5,11.0,0.1,0.5,0.3],g:200},
+  "스넥과자":{p:[500.0,60.0,10.0,27.0,6.0,2.5],g:30},
+  "쿠키, 크래커":{p:[480.0,60.0,20.0,22.0,6.0,2.0],g:30},
+  "초콜릿":{p:[535.0,58.0,52.0,30.0,6.0,3.5],g:30},
+  "아이스크림, 빙과류":{p:[190.0,23.0,20.0,10.0,3.5,0.5],g:100},
+  "땅콩":{p:[567.0,16.0,4.0,49.0,26.0,8.5],g:15},
+  "밤":{p:[162.0,37.0,10.0,0.6,3.0,4.5],g:30},
+  "소주":{p:[141.0,0.0,0.0,0.0,0.0,0.0],g:180},
+  "맥주":{p:[46.0,3.4,0.0,0.0,0.5,0.0],g:200},
+  "막걸리":{p:[54.0,1.6,0.0,0.0,1.4,0.0],g:210},
+};
+var SEASON_MONTHS={
+  "딸기":2.43,
+  "토마토, 방울토마토":4.39,
+  "참외":2.73,
+  "수박":2.29,
+  "복숭아":2.08,
+  "포도":2.21,
+  "사과":4.51,
+  "배":4.8,
+  "감, 곶감":1.98,
+  "귤":3.79,
+  "바나나":5.25,
+  "오렌지":2.71,
+  "키위":3.44,
 };
 
-// ── 활동량 계수 (Mifflin-St Jeor TDEE) ──
+var S=[
+  {name:"곡류",items:[
+    {n:"쌀밥",base:"1공기(300ml)",a:["½", "1", "1½", "2"]},
+    {n:"잡곡밥(콩밥 포함)",base:"1공기(300ml)",a:["½", "1", "1½", "2"]},
+    {n:"비빔밥, 볶음밥",base:"1인분(500ml)",a:["½", "1", "1½"]},
+    {n:"김밥",base:"1줄(삼각김밥 2개)",a:["½", "1", "1½", "2"]},
+    {n:"카레라이스",base:"1인분(500ml)",a:["½", "1", "1½"]},
+    {n:"라면, 컵라면",base:"1개",a:["½", "1", "1½"]},
+    {n:"국수, 칼국수, 우동",base:"1인분(1000ml)",a:["½", "1", "1½"]},
+    {n:"짜장면, 짬뽕",base:"1인분(1000ml)",a:["½", "1", "1½"]},
+    {n:"냉면",base:"1인분(1000ml)",a:["½", "1", "1½"]},
+    {n:"떡국",base:"1인분(1000ml)",a:["½", "1", "1½"]},
+    {n:"만두(찐만두, 군만두)",base:"1인분(만두6개)",a:["½", "1", "1½"]},
+    {n:"식빵",base:"2장",a:["1", "2", "3"]},
+    {n:"버터, 마아가린",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"잼",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"단팥빵, 호빵, 크림빵",base:"1개",a:["½", "1", "2"]},
+    {n:"카스테라, 케이크, 초코파이",base:"1개(조각)",a:["½", "1", "2"]},
+    {n:"피자",base:"2조각",a:["1", "2", "3"]},
+    {n:"햄버거, 샌드위치",base:"1인분",a:["½", "1", "1½"]},
+    {n:"백설기, 시루떡, 인절미, 절편",base:"백설기 ½개",a:["¼", "½", "1"]},
+    {n:"떡볶이",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"시리얼",base:"1대접(250ml, 우유포함)",a:["½", "1", "1½"]},
+  ]},
+  {name:"국·탕·찌개",items:[
+    {n:"설렁탕, 곰탕, 사골국",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"감자탕",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"추어탕",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"동태찌개, 해물매운탕",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"미역국",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"쇠고기국, 육개장, 무국",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"북어국",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"된장국",base:"1대접(250ml)",a:["½", "1", "1½"]},
+    {n:"된장찌개, 청국장찌개",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"김치찌개, 김치볶음",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"부대찌개",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"두부찌개, 순두부찌개",base:"1컵(200ml)",a:["½", "1", "1½"]},
+  ]},
+  {name:"두부·콩·계란",items:[
+    {n:"두부, 두부조림, 두부부침",base:"½컵(100ml)",a:["¼", "½", "1"]},
+    {n:"콩조림",base:"1TS(15ml)",a:["½", "1", "1½"]},
+    {n:"달걀후라이, 달걀말이",base:"1개(달걀말이 4조각)",a:["½", "1", "2"]},
+    {n:"삶은 달걀, 달걀찜",base:"1개(달걀찜 ½컵)",a:["½", "1", "2"]},
+  ]},
+  {name:"육류",items:[
+    {n:"돼지고기 삼겹살구이",base:"1인분(150g)",a:["½", "1", "2"]},
+    {n:"돼지고기 삶은고기(수육, 보쌈)",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"제육볶음, 돼지불고기, 돼지갈비구이, 돼지갈비찜",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"돼지고기 탕수육, 돈까스",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"쇠고기 생고기구이",base:"1인분(150g)",a:["½", "1", "2"]},
+    {n:"쇠고기 불고기",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"햄",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"순대",base:"½컵(100ml)",a:["¼", "½", "1"]},
+    {n:"삼계탕(닭백숙)",base:"1인분(800ml)",a:["½", "1", "1½"]},
+    {n:"닭볶음(닭갈비), 닭조림(닭도리탕)",base:"2컵(400ml)",a:["1", "2", "3"]},
+    {n:"치킨(닭튀김)",base:"닭다리 2개",a:["1", "2", "3"]},
+    {n:"오리고기 로스구이",base:"1인분(150g)",a:["½", "1", "1½"]},
+  ]},
+  {name:"어패류",items:[
+    {n:"고등어, 꽁치(구이, 조림)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"갈치, 조기(구이, 조림)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"멸치, 멸치볶음",base:"1TS(15ml)",a:["1ts", "1TS", "¼컵"]},
+    {n:"오징어(생것, 삶은것, 볶음), 오징어채, 마른 오징어",base:"¼마리(½컵)",a:["⅛", "¼", "½"]},
+    {n:"게장",base:"1TS(15ml)",a:["1ts", "1TS", "¼컵"]},
+    {n:"새우젓, 오징어젓, 조개젓",base:"1ts(5ml)",a:["½", "1", "3"]},
+    {n:"어묵(볶음, 국)",base:"볶음 ½컵(100ml)",a:["¼", "½", "1"]},
+  ]},
+  {name:"채소·나물",items:[
+    {n:"콩나물(무침, 국), 숙주나물",base:"나물 ¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"시금치나물",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"도라지(생채, 나물)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"호박(나물, 전)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"고사리나물, 취나물, 가지나물 등 기타 나물",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"오이(생채, 생오이)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"무(생채, 단무지, 무말랭이)",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"채소샐러드",base:"½컵(100ml)",a:["¼", "½", "1"]},
+    {n:"파무침, 부추무침",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"쌈채소(상추, 깻잎, 배추, 호박잎), 풋고추",base:"상추 10장",a:["5", "10", "15"]},
+    {n:"삶은 브로콜리, 삶은 양배추",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"마늘",base:"2알(⅓뿌리)",a:["1", "2", "3"]},
+    {n:"쌈장(고추장, 된장, 혼합장), 초고추장",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"배추김치",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"기타 김치, 겉절이",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"장아찌(고추, 마늘, 깻잎, 양파, 무), 오이피클",base:"1TS(15ml)",a:["½", "1", "1½"]},
+    {n:"연근조림, 우엉조림",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"부침개류(부추전, 김치전 등)",base:"½장",a:["¼", "½", "1"]},
+    {n:"잡채",base:"½컵(100ml)",a:["¼", "½", "1"]},
+    {n:"버섯볶음",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+  ]},
+  {name:"해조류",items:[
+    {n:"김구이, 생김, 김무침",base:"1장(자른김 8장)",a:["½", "1", "2"]},
+    {n:"파래무침, 미역초무침",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"미역줄기볶음",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+  ]},
+  {name:"감자·옥수수",items:[
+    {n:"감자볶음, 감자조림",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"찐감자, 군감자",base:"1개",a:["½", "1", "2"]},
+    {n:"찐고구마, 군고구마",base:"1개",a:["½", "1", "2"]},
+    {n:"찐옥수수, 군옥수수",base:"1개",a:["½", "1", "1½"]},
+  ]},
+  {name:"과일",items:[
+    {n:"딸기",base:"10개",a:["5", "10", "15"],seasonal:true},
+    {n:"토마토, 방울토마토",base:"1개(방울토마토 30개)",a:["½", "1", "2"],seasonal:true},
+    {n:"참외",base:"1개",a:["⅓", "1", "2"],seasonal:true},
+    {n:"수박",base:"2조각",a:["1", "2", "3"],seasonal:true},
+    {n:"복숭아",base:"1개",a:["½", "1", "2"],seasonal:true},
+    {n:"포도",base:"1컵(200ml)",a:["½", "1", "2"],seasonal:true},
+    {n:"사과",base:"1개",a:["½", "1", "2"],seasonal:true},
+    {n:"배",base:"½개",a:["¼", "½", "1"],seasonal:true},
+    {n:"감, 곶감",base:"1개",a:["½", "1", "2"],seasonal:true},
+    {n:"귤",base:"2개",a:["1", "2", "3"],seasonal:true},
+    {n:"바나나",base:"1개",a:["½", "1", "2"],seasonal:true},
+    {n:"오렌지",base:"1개",a:["½", "1", "2"],seasonal:true},
+    {n:"키위",base:"2개",a:["1", "2", "3"],seasonal:true},
+  ]},
+  {name:"유제품·음료",items:[
+    {n:"우유(일반, 저지방)",base:"1컵(200ml)",a:["½", "1", "1½"],milk:true},
+    {n:"액상요구르트",base:"중 1개(80ml)",a:["소1", "중1", "대1"]},
+    {n:"호상요구르트(떠먹는 요구르트)",base:"1개(100g)",a:["½", "1", "2"]},
+    {n:"두유",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"커피",base:"2ts(믹스)",a:["1", "2", "3"],coffee:true},
+    {n:"프림",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"설탕",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"녹차",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"탄산음료(콜라, 사이다, 과일탄산음료)",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"과일주스",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"미숫가루음료, 식혜",base:"1컵(200ml)",a:["½", "1", "1½"]},
+  ]},
+  {name:"간식",items:[
+    {n:"스넥과자",base:"1컵(200ml)",a:["½", "1", "1½"]},
+    {n:"쿠키, 크래커",base:"6조각",a:["3", "6", "9"]},
+    {n:"초콜릿",base:"판초콜릿 ½개",a:["¼", "½", "1"]},
+    {n:"아이스크림, 빙과류",base:"1개(100ml)",a:["½", "1", "2"]},
+    {n:"땅콩",base:"¼컵(50ml)",a:["⅛", "¼", "½"]},
+    {n:"밤",base:"3알",a:["1", "3", "5"]},
+  ]},
+  {name:"주류",items:[
+    {n:"소주",base:"½병(180ml)",a:["¼", "½", "1"],alcohol:"1병 이상"},
+    {n:"맥주",base:"1컵(200ml)",a:["½", "1", "2"],alcohol:"2컵 이상"},
+    {n:"막걸리",base:"1사발(210ml)",a:["½", "1", "2"],alcohol:"2사발 이상"},
+  ]},
+];
+
+
+var GAS_URL='https://script.google.com/macros/s/AKfycbz4d8mpCncraQRb6LJrUWf4ApzSGk453NdcFF3TYzafLgTDPd5qwKb9I6zgbhLfsTBj/exec';
+
+var curSec=0, pid='', sex='', age=0, ht=0, wt=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
+
 var ACT_FACTOR={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryactive:1.9};
 var ACT_LABEL={sedentary:'매우 비활동적',light:'가벼운 활동',moderate:'중간 활동',active:'매우 활동적',veryactive:'극도로 활동적'};
+var WATER_LABEL=['0~1컵','2~3컵','4~5컵','6~7컵','8~9컵','10컵 이상'];
+var SEASON_LABEL={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'};
 
-// ── 영양성분 계산 ──
-// FSCORES = 1일당 섭취 횟수. 1일 평균 영양섭취량 = Σ(1회영양가 × 일일횟수)
+// ═══════════ 영양 계산 ═══════════
+// 1일당 섭취량 = 빈도(1일횟수) × 섭취량비율 × 계절보정
+function itemDailyFactor(item, a){
+  if(!a || a.freq===undefined || a.freq===0) return 0;
+  var fpd = FSCORES[a.freq];              // 1일 섭취횟수
+  var ratio = a.amt!==undefined ? item.a.length===4 ? [0.5,1,1.5,2][a.amt] : [0.5,1,1.5][a.amt] : 1;
+  var seasonAdj = 1;
+  if(item.seasonal){
+    if(a.season==='seasonal'){  // 제철에만
+      var months = SEASON_MONTHS[item.n] || 12;
+      seasonAdj = months/12;
+    }
+    // '무관'(연중) 또는 미선택이면 seasonAdj=1
+  }
+  return fpd * ratio * seasonAdj;
+}
+
 function calcNutrition(){
-  var tot=[0,0,0,0,0,0]; // kcal,carb,sugar,fat,protein,fiber
+  var tot=[0,0,0,0,0,0];
   S.forEach(function(sec,si){
     sec.items.forEach(function(item,idx){
       var a=ANS[si+'_'+idx];
-      if(!a||!a.freq||a.freq==='거의 안 먹음') return;
+      var f=itemDailyFactor(item,a);
+      if(f<=0) return;
       var nu=NUTRI[item.n];
       if(!nu) return;
-      var perServ=nu.g/100; // 1회분량 배수
-      var fpd=FSCORES[FREQS.indexOf(a.freq)]; // 1일 섭취횟수
-      for(var k=0;k<6;k++){
-        tot[k]+= nu.p[k]*perServ*fpd;
-      }
+      var perServ=nu.g/100;
+      for(var k=0;k<6;k++) tot[k]+= nu.p[k]*perServ*f;
     });
   });
   var carb=+tot[1].toFixed(1), sugar=+tot[2].toFixed(1), fat=+tot[3].toFixed(1),
       protein=+tot[4].toFixed(1), fiber=+tot[5].toFixed(1);
-  // 복합당(전분 등) = 총탄수 - 당류 - 식이섬유 (음수 방지)
   var complex=+Math.max(0, carb - sugar - fiber).toFixed(1);
-  // 다량영양소 열량(Atwater): 탄수 4, 단백 4, 지방 9, 식이섬유 2
   var kCarb=(carb-fiber)*4, kFib=fiber*2, kPro=protein*4, kFat=fat*9;
   var kSum=kCarb+kFib+kPro+kFat;
   var pct=function(x){ return kSum>0? Math.round(x/kSum*100):0; };
   return {kcal:Math.round(tot[0]),carb:carb,sugar:sugar,complex:complex,fiber:fiber,
-          fat:fat,protein:protein,
-          pctCarb:pct(kCarb+kFib),pctPro:pct(kPro),pctFat:pct(kFat)};
+          fat:fat,protein:protein,pctCarb:pct(kCarb+kFib),pctPro:pct(kPro),pctFat:pct(kFat)};
 }
 
-// BMI + 기초대사량(Mifflin-St Jeor) + 활동대사량(TDEE)
 function calcBody(){
   if(!ht||!wt) return null;
-  var m=ht/100;
-  var bmi=+(wt/(m*m)).toFixed(1);
-  // 대한비만학회 아시아 기준
+  var m=ht/100, bmi=+(wt/(m*m)).toFixed(1);
   var cat = bmi<18.5?'저체중': bmi<23?'정상': bmi<25?'과체중': bmi<30?'비만':'고도비만';
-  var ideal=+(22*m*m).toFixed(1); // 표준체중(BMI 22)
-  // Mifflin-St Jeor BMR
-  var bmr = (sex==='M')
-    ? (10*wt + 6.25*ht - 5*age + 5)
-    : (10*wt + 6.25*ht - 5*age - 161);
+  var ideal=+(22*m*m).toFixed(1);
+  var bmr = (sex==='M') ? (10*wt+6.25*ht-5*age+5) : (10*wt+6.25*ht-5*age-161);
   bmr=Math.round(bmr);
-  var factor=ACT_FACTOR[act]||1.2;
-  var tdee=Math.round(bmr*factor);
+  var factor=ACT_FACTOR[act]||1.2, tdee=Math.round(bmr*factor);
   return {bmi:bmi,cat:cat,ideal:ideal,bmr:bmr,tdee:tdee,factor:factor,actLabel:ACT_LABEL[act]||''};
 }
 
-// seasonal:true → 계절 체크 + 섭취빈도(1개) + 1회섭취량
-var S=[
-  {name:'곡류', items:[
-    {n:'밥', note:'집뿐만 아니라 회사, 식당에서 드시는 것도 포함', a:['1/2공기','1공기(210g)','1공기 반'], sub:{q:'주로 드시는 밥의 종류는?', opts:['쌀밥','콩밥','잡곡밥','쌀밥과 잡곡밥(콩밥 포함)을 비슷하게']}},
-    {n:'식빵/샌드위치/토스트', a:['1쪽','2쪽','3쪽']},
-    {n:'잼/꿀/시럽', a:['1찻술(5g)','2찻술','3찻술']},
-    {n:'버터/마아가린', a:['1찻술(5g)','2찻술','3찻술']},
-    {n:'떡', a:['인절미 기준 1개','인절미 기준 3개(50g)','인절미 기준 5개']},
-    {n:'칼국수/우동/냉면/짜장면/짬뽕/국수장국/스파게티', a:['1/2그릇','1그릇','1그릇 반']},
-    {n:'떡국/만두/만두국', a:['1/2그릇','1그릇','1그릇 반']},
-    {n:'라면', a:['1/2그릇','1그릇','1그릇 반']},
-    {n:'씨리얼/콘푸레이크(우유 제외)', a:['종이컵 1/2컵','종이컵 1컵(30g)','종이컵 1컵 반']},
-    {n:'선식/미숫가루/생식', a:['1큰술 반','3큰술(40g)','4큰술 반']},
-    {n:'피자/햄버거', a:['피자1쪽/햄버거1/2개','피자2쪽/햄버거1개','피자3쪽/햄버거1.5개']},
-    {n:'감자(찐감자, 감자튀김, 감자국 등)', a:['중 1/2개','중 1개','중 1개 반']},
-    {n:'고구마(찐고구마, 맛탕 등)', a:['중 1/2개','중 1개','중 1개 반']},
-  ]},
-  {name:'육류 / 계란', items:[
-    {n:'쇠고기구이(등심, 안심, 불고기 등)', a:['1/2인분','1인분(200g)','1인분 반']},
-    {n:'소갈비', a:['1/2인분','1인분(200g)','1인분 반']},
-    {n:'쇠고기 부산물(간, 곱창, 순대, 양 등)', a:['1/2인분','1인분(200g)','1인분 반']},
-    {n:'탕류(설렁탕, 곰탕, 갈비탕 등)', a:['반그릇','한그릇','한그릇 반']},
-    {n:'삼겹살', a:['1/2인분','1인분(200g)','1인분 반']},
-    {n:'돼지고기(불고기, 보쌈, 장조림, 족발 등)', a:['1/2인분','1인분','1인분 반']},
-    {n:'가공육(햄, 소시지, 스팸)', a:['비엔나소시지3개/스팸1/2조각','비엔나소시지5개/스팸1조각','비엔나소시지8개/스팸1.5조각']},
-    {n:'닭튀김/양념통닭', a:['2조각','4조각(240g)','6조각']},
-    {n:'닭고기(볶음, 조림, 구이, 백숙 등)', a:['1/2접시','1접시(80g)','1접시 반']},
-    {n:'계란/메추리알', a:['계란1/2개/메추리알3개','계란1개/메추리알5개','계란1.5개/메추리알8개'], sub:{q:'주로 드시는 계란의 형태는?', opts:['전란','난백(흰자만)','난황(노른자만)']}},
-  ]},
-  {name:'어류', items:[
-    {n:'생선회', a:['5점','10점(100g)','15점']},
-    {n:'흰살생선 프라이팬구이/튀김(갈치, 조기, 대구, 가자미, 명태, 북어 등)', a:['1/2토막','1토막(50g)','1토막 반']},
-    {n:'흰살생선 조림/찌개(갈치, 조기, 대구, 가자미, 명태, 북어 등)', a:['1/2토막','1토막(50g)','1토막 반']},
-    {n:'등푸른생선 구이/튀김(고등어, 삼치, 꽁치 등)', a:['1/2토막','1토막(50g)','1토막 반']},
-    {n:'등푸른생선 조림/찌개(고등어, 삼치, 꽁치 등)', a:['1/2토막','1토막(50g)','1토막 반']},
-    {n:'오징어/낙지/건오징어', a:['몸통 1/4','몸통 1/2(75g)','몸통 3/4']},
-    {n:'멸치, 멸치볶음(다시국물 제외)', a:['1/2큰술','1큰술','1큰술 반']},
-    {n:'통조림(참치, 꽁치, 고등어)', a:['작은캔 1/3개','작은캔 2/3개','작은캔 1개']},
-    {n:'굴/조개류(골뱅이 포함)', a:['종이컵 1/6컵','종이컵 1/3컵(70g)','종이컵 1/2컵']},
-    {n:'새우', a:['중하 1마리','중하 3마리(50g)','중하 5마리']},
-    {n:'어묵/게맛살', a:['1/3꼬치','2/3꼬치','1꼬치']},
-    {n:'젓갈류(게장 포함)', a:['1/2큰술','1큰술','1큰술 반']},
-  ]},
-  {name:'콩류 / 김치류', items:[
-    {n:'콩/콩자반(초콩포함, 콩밥 제외)', a:['1/2큰술','1큰술(10g)','1큰술 반']},
-    {n:'두부/순두부/연두부(찌개에 들어간 두부 포함)', a:['1/10모','1/5모(80g)','1/3모']},
-    {n:'된장국/된장찌개/청국장찌개', a:['1/2그릇','1그릇','1그릇 반']},
-    {n:'된장/쌈장(국, 찌개에 들어가는 것 제외)', a:['1/2큰술','1큰술','1큰술 반']},
-    {n:'배추김치(김치찌개, 김치국 포함)', a:['종이컵 1/4컵','종이컵 1/2컵(60g)','종이컵 3/4컵']},
-    {n:'깍두기/무김치/나박김치/동치미', a:['종이컵 1/4컵','종이컵 1/2컵(60g)','종이컵 3/4컵']},
-    {n:'장아찌', a:['마늘장아찌 기준 1쪽','마늘장아찌 기준 3쪽','마늘장아찌 기준 5쪽']},
-  ]},
-  {name:'과일 / 주스류', items:[
-    {n:'사과', seasonal:true, a:['1/3개(80g)','2/3개','1개']},
-    {n:'귤/오렌지', seasonal:true, a:['소 1개','소 3개','소 5개']},
-    {n:'바나나', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
-    {n:'딸기', seasonal:true, a:['중 5개','중 10개','중 15개']},
-    {n:'수박', seasonal:true, a:['중 1쪽(150g)','중 2쪽','중 3쪽']},
-    {n:'참외/멜론', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
-    {n:'복숭아/자두', seasonal:true, a:['중 1/2개','중 1개','중 1개 반']},
-    {n:'감/곶감', seasonal:true, a:['중 1/2개(75g)','중 1개','중 1개 반']},
-    {n:'포도', seasonal:true, a:['1/4송이','1/2송이','3/4송이']},
-    {n:'배', seasonal:true, a:['중 1/6개','중 1/3개(150g)','중 1/2개']},
-    {n:'토마토/방울토마토/토마토주스', seasonal:true, a:['소 1개','소 2개','소 3개']},
-    {n:'과일주스(오렌지, 사과, 포도 등)', a:['1/2컵','1컵(200cc)','1컵 반']},
-  ]},
-  {name:'우유 및 유제품 / 음료류', items:[
-    {n:'우유(씨리얼과 함께 섭취하는 우유 포함)', a:['1/2컵','1컵(200cc)','1컵 반'], sub:{q:'주로 드시는 우유의 형태는?', opts:['보통우유','저지방 또는 무지방 우유']}},
-    {n:'요구르트', a:['1/2개','1개','1개 반'], sub:{q:'주로 드시는 요구르트의 형태는?', opts:['호상(발효유)','액상(야쿠르트)','호상, 액상 모두']}},
-    {n:'아이스크림', a:['1/3컵','1/2컵(100g)','2/3컵']},
-    {n:'치즈', a:['1/2장','1장(20g)','1장 반']},
-    {n:'두유', a:['1/2컵','1컵(200cc)','1컵 반']},
-    {n:'커피', a:['1잔','2잔','3잔'], sub:{q:'커피 추가 사항', opts2:[{q:'설탕을 넣습니까?',k:'sugar',opts:['예','아니오']},{q:'프림을 넣습니까?',k:'cream',opts:['예','아니오']}]}},
-    {n:'녹차', a:['1잔','2잔','3잔']},
-    {n:'청량음료(콜라, 사이다)', a:['1잔','2잔','3잔']},
-    {n:'기타음료(유자차, 알로에, 식혜, 대추차 등)', a:['1잔','2잔','3잔']},
-  ]},
-  {name:'주류 / 유지 / 당류', items:[
-    {n:'소주/청주(청하, 백세주 등)', a:['1-2잔','3-4잔','5잔 이상']},
-    {n:'맥주', a:['1-2잔','3-4잔','5잔 이상']},
-    {n:'양주', a:['1-2잔','3-4잔','5잔 이상']},
-    {n:'포도주/과실주', a:['1-2잔','3-4잔','5잔 이상']},
-    {n:'막걸리', a:['1-2잔','3-4잔','5잔 이상']},
-    {n:'쿠키/크래커/스낵', a:['쿠키1개/크래커3개/스낵1/6봉지','쿠키2개/크래커6개/스낵1/3봉지','쿠키3개/크래커9개/스낵1/2봉지']},
-    {n:'사탕/초콜릿', a:['사탕1개/초콜릿3조각','사탕2개/초콜릿6조각','사탕3개/초콜릿9조각']},
-    {n:'땅콩, 아몬드/호두/잣', a:['땅콩·아몬드12개/호두3개/잣1큰술','땅콩·아몬드24개/호두5개/잣2큰술','땅콩·아몬드36개/호두8개/잣3큰술']},
-    {n:'빵류(케이크, 도넛, 크림빵, 단팥빵 등)', a:['1/2개','1개','1개 반']},
-  ]},
-];
-
-var ANTI=['생선','두부','김치','사과','바나나','토마토','우유','녹차','포도','귤','딸기','복숭아','배','수박','참외','콩','오징어','새우','굴'];
-var PRO=['가공육','소주','맥주','양주','막걸리','청량음료','쿠키','빵류','사탕','초콜릿','라면','피자','햄버거','버터','마아가린'];
-var curSec=0, pid='', sex='', age=0, ht=0, wt=0, act='', ANS={}, SUBS=[], SHEET_URL='';
-
-/* ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-   구글 시트 연동 설정
-   1) 구글 시트 새로 만들기 → 확장 프로그램 → Apps Script
-   2) 함께 드린 Code.gs 내용을 붙여넣고 저장
-   3) 배포 → 새 배포 → 웹 앱 → 액세스: "모든 사용자" → 배포
-   4) 발급된 웹 앱 URL을 아래 따옴표 안에 붙여넣기
-   ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★ */
-var GAS_URL='https://script.google.com/macros/s/AKfycbxtVgYNqVirHDcF04EJQ4YypYz5dgIjF6tbofncX0CIoqDMtkjUFvOTn8z8qGb7g1PJ/exec';
-
-var SEASON_LABEL={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'};
-
-// 구글 시트에 저장할 헤더/행 생성 (식품별 1열)
-function buildSheetRow(dii,count){
-  var nu=calcNutrition();
-  var b=calcBody()||{bmi:'',cat:'',ideal:'',bmr:'',tdee:'',actLabel:''};
-  var header=['제출일시','참여자번호','성별','나이','키(cm)','몸무게(kg)','BMI','체중분류',
-    '활동량','기초대사량(kcal)','활동대사량(kcal)','표준체중(kg)',
-    '섭취칼로리(kcal)','열량적정성(%)','에너지수지(kcal)',
-    '탄수화물(g)','복합당(g)','당류(g)','식이섬유(g)','단백질(g)','지방(g)',
-    '탄수비율(%)','단백비율(%)','지방비율(%)','DII','응답항목수'];
-  var kcalPct = b.tdee? Math.round(nu.kcal/b.tdee*100):'';
-  var balance = b.tdee? (nu.kcal-b.tdee):'';
-  var sexKo = sex==='M'?'남':(sex==='F'?'여':'');
-  var row=[new Date().toLocaleString('ko-KR'),pid,sexKo,age,ht,wt,b.bmi,b.cat,
-    b.actLabel,b.bmr,b.tdee,b.ideal,
-    nu.kcal,kcalPct,balance,
-    nu.carb,nu.complex,nu.sugar,nu.fiber,nu.protein,nu.fat,
-    nu.pctCarb,nu.pctPro,nu.pctFat,dii,count];
-  S.forEach(function(sec,si){
-    sec.items.forEach(function(item,idx){
-      header.push('['+sec.name+'] '+item.n);
-      var a=ANS[si+'_'+idx]||{};
-      if(!a.freq){row.push('');return;}
-      var parts=[a.freq];
-      if(a.amount) parts.push(a.amount);
-      if(a.seasons){
-        var ss=Object.keys(a.seasons).filter(function(k){return a.seasons[k];}).map(function(k){return SEASON_LABEL[k];});
-        if(ss.length) parts.push(ss.join('·'));
-      }
-      if(a.sub) parts.push(a.sub);
-      if(a.sugar) parts.push('설탕:'+a.sugar);
-      if(a.cream) parts.push('프림:'+a.cream);
-      row.push(parts.join(' / '));
-    });
-  });
-  header.push('_RAW');
-  row.push(JSON.stringify(ANS));
-  return {header:header,row:row};
+// ═══════════ 모드 ═══════════
+function setMode(m){
+  mode=m;
+  document.getElementById('mode-patient').className='mbtn'+(m==='patient'?' active':'');
+  document.getElementById('mode-doctor').className='mbtn'+(m==='doctor'?' active':'');
+  if(m==='patient') showId(); else showDoctor();
 }
+function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;act='';water='';ANS={};showId();}
 
-function toMode(m){
-  document.getElementById('mp').className='mbtn'+(m==='patient'?' active':'');
-  document.getElementById('md').className='mbtn'+(m==='doctor'?' active':'');
-  m==='patient' ? showId() : showDoctor();
+// ═══════════ 문진 화면 (성별·나이·키·몸무게·활동량·물) ═══════════
+function actBtn(key,title,desc){
+  return '<button class="abtn" id="act_'+key+'" onclick="pickAct(\''+key+'\')" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:11px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">'+
+    '<span style="font-weight:600;font-size:13px;">'+title+'</span>'+
+    '<span style="font-size:12px;color:#888;margin-left:8px;">'+desc+'</span></button>';
+}
+function waterBtn(i){
+  return '<button class="fbtn2" id="water_'+i+'" onclick="pickWater('+i+')">'+WATER_LABEL[i]+'</button>';
+}
+function pickSex(s){ sex=s; refreshBasic(); }
+function pickAct(a){ act=a; refreshBasic(); }
+function pickWater(w){ water=w; refreshBasic(); }
+function refreshBasic(){
+  ['M','F'].forEach(function(x){ var el=document.getElementById('sex_'+x); if(el) el.className='fbtn'+(sex===x?' sel':''); });
+  Object.keys(ACT_FACTOR).forEach(function(k){ var el=document.getElementById('act_'+k); if(el) el.className='abtn'+(act===k?' sel':''); });
+  for(var i=0;i<6;i++){ var el=document.getElementById('water_'+i); if(el) el.className='fbtn2'+(water===i?' sel':''); }
 }
 
 function showId(){
   document.getElementById('main').innerHTML=
-    '<div class="card">'+
-      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">연구 참여자 번호 입력</div>'+
+    '<div class="qcard">'+
+      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">연구 참여자 번호</div>'+
       '<div style="font-size:13px;color:#888;margin-bottom:10px;">의료진이 알려드린 번호를 입력해 주세요</div>'+
-      '<input class="idinput" id="pidinput" placeholder="예: 001" maxlength="10"/>'+
+      '<input class="idinput" id="pidinput" placeholder="예: 001" maxlength="10" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;text-align:center;letter-spacing:2px;"/>'+
     '</div>'+
-    '<div class="card">'+
-      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">기본 정보</div>'+
-      '<div style="font-size:13px;color:#888;margin-bottom:10px;">BMI와 필요열량 계산에 사용됩니다</div>'+
-      '<div class="flabel">성별</div>'+
-      '<div class="fbtns" id="sexbtns">'+
-        '<button class="fbtn" id="sex_M" onclick="pickSex(\'M\')">남성</button>'+
-        '<button class="fbtn" id="sex_F" onclick="pickSex(\'F\')">여성</button>'+
+    '<div class="qcard">'+
+      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:10px;">기본 정보</div>'+
+      '<div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">성별</div>'+
+      '<div class="fbtns" style="display:flex;gap:8px;margin-bottom:10px;">'+
+        '<button class="fbtn" id="sex_M" onclick="pickSex(\'M\')" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">남성</button>'+
+        '<button class="fbtn" id="sex_F" onclick="pickSex(\'F\')" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">여성</button>'+
       '</div>'+
-      '<div style="display:flex;gap:10px;margin-top:6px;">'+
-        '<div style="flex:1;">'+
-          '<div class="flabel">나이 (만)</div>'+
-          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" placeholder="예: 45" style="font-size:18px;letter-spacing:0;"/>'+
-        '</div>'+
-        '<div style="flex:1;">'+
-          '<div class="flabel">키 (cm)</div>'+
-          '<input class="idinput" id="htinput" type="number" inputmode="decimal" placeholder="예: 170" style="font-size:18px;letter-spacing:0;"/>'+
-        '</div>'+
-        '<div style="flex:1;">'+
-          '<div class="flabel">몸무게 (kg)</div>'+
-          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" placeholder="예: 65" style="font-size:18px;letter-spacing:0;"/>'+
-        '</div>'+
+      '<div style="display:flex;gap:10px;">'+
+        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">나이(만)</div>'+
+          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" placeholder="45" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">키(cm)</div>'+
+          '<input class="idinput" id="htinput" type="number" inputmode="decimal" placeholder="170" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">몸무게(kg)</div>'+
+          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
       '</div>'+
     '</div>'+
-    '<div class="card">'+
+    '<div class="qcard">'+
       '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">평소 활동량</div>'+
-      '<div style="font-size:13px;color:#888;margin-bottom:10px;">하루 활동 강도에 가장 가까운 것을 선택해 주세요</div>'+
+      '<div style="font-size:13px;color:#888;margin-bottom:10px;">하루 활동 강도에 가장 가까운 것</div>'+
       '<div id="actbtns">'+
         actBtn('sedentary','매우 비활동적','하루 대부분 앉아서 생활')+
-        actBtn('light','가벼운 활동','가벼운 운동 · 주 1~3회')+
-        actBtn('moderate','중간 활동','중간 강도 운동 · 주 3~5회')+
-        actBtn('active','매우 활동적','격렬한 운동 · 주 6~7회')+
-        actBtn('veryactive','극도로 활동적','육체노동 + 격렬한 운동 병행')+
+        actBtn('light','가벼운 활동','가벼운 운동·주 1~3회')+
+        actBtn('moderate','중간 활동','중간 강도 운동·주 3~5회')+
+        actBtn('active','매우 활동적','격렬한 운동·주 6~7회')+
+        actBtn('veryactive','극도로 활동적','육체노동+격렬한 운동')+
       '</div>'+
     '</div>'+
-    '<div style="background:#eff6ff;border-radius:12px;padding:1.25rem;margin-bottom:1rem;">'+
-      '<div style="font-size:13px;color:#1e40af;line-height:1.6;">지난 1년간 평균적으로 드신 식품과 양을 선택해 주세요.<br>총 7개 식품군, 약 10~15분 소요됩니다.</div>'+
+    '<div class="qcard">'+
+      '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">하루 물 섭취량</div>'+
+      '<div style="font-size:13px;color:#888;margin-bottom:10px;">생수·보리차 등 (1컵=200ml)</div>'+
+      '<div style="display:flex;flex-wrap:wrap;">'+[0,1,2,3,4,5].map(waterBtn).join('')+'</div>'+
     '</div>'+
-    '<button class="bigbtn" onclick="startSurvey()">설문 시작하기</button>';
+    '<div style="background:#eff6ff;border-radius:12px;padding:1.1rem;margin-bottom:1rem;">'+
+      '<div style="font-size:13px;color:#1e40af;line-height:1.6;">지난 1년간 평균적으로 드신 음식과 양을 선택해 주세요.<br>총 12개 식품군·112문항, 약 15~20분 소요됩니다.</div>'+
+    '</div>'+
+    '<button class="bigbtn" onclick="startSurvey()" style="width:100%;padding:14px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;">설문 시작하기</button>';
   refreshBasic();
-}
-
-function actBtn(key,title,desc){
-  return '<button class="abtn" id="act_'+key+'" onclick="pickAct(\''+key+'\')" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:11px 14px;">'+
-    '<span style="font-weight:600;font-size:13px;">'+title+'</span>'+
-    '<span style="font-size:12px;color:#888;margin-left:8px;">'+desc+'</span>'+
-  '</button>';
-}
-function pickSex(s){ sex=s; refreshBasic(); }
-function pickAct(a){ act=a; refreshBasic(); }
-function refreshBasic(){
-  ['M','F'].forEach(function(x){ var el=document.getElementById('sex_'+x); if(el) el.className='fbtn'+(sex===x?' sel':''); });
-  Object.keys(ACT_FACTOR).forEach(function(k){ var el=document.getElementById('act_'+k); if(el) el.className='abtn'+(act===k?' sel':''); });
 }
 
 function startSurvey(){
@@ -428,293 +508,212 @@ function startSurvey(){
   var ag=parseInt(document.getElementById('ageinput').value);
   var h=parseFloat(document.getElementById('htinput').value);
   var w=parseFloat(document.getElementById('wtinput').value);
-  if(!ag){alert('나이를 입력해 주세요.');return;}
-  if(ag<1||ag>120){alert('나이를 다시 확인해 주세요. (1~120세)');return;}
-  if(!h||!w){alert('키와 몸무게를 입력해 주세요.');return;}
-  if(h<80||h>230){alert('키를 다시 확인해 주세요. (80~230cm)');return;}
-  if(w<20||w>250){alert('몸무게를 다시 확인해 주세요. (20~250kg)');return;}
-  if(!act){alert('평소 활동량을 선택해 주세요.');return;}
+  if(!ag||ag<1||ag>120){alert('나이를 확인해 주세요.');return;}
+  if(!h||h<80||h>230){alert('키를 확인해 주세요.');return;}
+  if(!w||w<20||w>250){alert('몸무게를 확인해 주세요.');return;}
+  if(!act){alert('활동량을 선택해 주세요.');return;}
+  if(water===''){alert('물 섭취량을 선택해 주세요.');return;}
   pid=v; age=ag; ht=h; wt=w; ANS={}; curSec=0; renderSec();
 }
 
+// ═══════════ 설문 렌더링 (섹션별) ═══════════
 function renderSec(){
   var sec=S[curSec];
-  var pct=Math.round(curSec/S.length*100);
-  var html=
-    '<div class="stepind">'+(curSec+1)+' / '+S.length+'</div>'+
-    '<div class="pbar"><div class="pfill" style="width:'+pct+'%"></div></div>'+
-    '<div class="stitle">'+sec.name+'</div>'+
-    '<div class="ssub">지난 1년간 평균 섭취 빈도와 1회 섭취 분량을 선택해 주세요</div>';
+  var prog=Math.round((curSec)/S.length*100);
+  var html='<div class="progress"><div style="width:'+prog+'%"></div></div>'+
+    '<div style="font-size:13px;color:#888;margin-bottom:2px;">'+(curSec+1)+' / '+S.length+' 식품군</div>'+
+    '<div style="font-size:20px;font-weight:700;color:#111;margin-bottom:2px;">'+sec.name+'</div>'+
+    '<div style="font-size:12px;color:#888;margin-bottom:1rem;">각 음식을 지난 1년간 평균 얼마나 드셨는지 선택해 주세요</div>';
 
-  sec.items.forEach(function(item,idx){
-    var key=curSec+'_'+idx;
-    var d=ANS[key]||{};
-    var selF=d.freq||'';
-    var selA=d.amount||'';
-    var never=selF==='거의 안 먹음';
-
-    var incomplete = selF==='' || (!never && !selA);
-    html+='<div class="fitem" style="'+(incomplete&&selF!==''?'border-color:#ef4444;':'')+'">';
-    if(item.note) html+='<div class="note">★ '+item.note+'</div>';
-    html+='<div class="fname">'+item.n+'</div>';
-
-    // [계절 과일] 드시는 계절 체크
-    if(item.seasonal){
-      html+='<div class="flabel">드시는 계절 (해당되는 계절 모두 선택)</div>'+
-            '<div class="season-row">';
-      SEASONS.forEach(function(s){
-        var checked=d.seasons&&d.seasons[s.key];
-        html+='<button class="sbtn'+(checked?' '+s.cls:'')+'" onclick="toggleSeason(\''+key+'\',\''+s.key+'\')">'+s.label+'</button>';
-      });
-      html+='</div><div class="divider"></div>';
-    }
-
-    // 섭취 빈도 (공통)
-    html+='<div class="flabel">섭취 빈도</div><div class="fbtns">';
-    FREQS.forEach(function(f){
-      html+='<button class="fbtn'+(selF===f?' sel':'')+'" onclick="pickFreq(\''+key+'\',\''+f+'\')">'+f+'</button>';
-    });
-    html+='</div>';
-
-    // 1회 섭취량 (공통 — 빈도 선택 후 거의 안 먹음이 아닐 때)
-    if(selF && !never){
-      html+='<div class="flabel">1회 섭취량</div><div class="abtns">';
-      item.a.forEach(function(a){
-        var aEsc=a.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-        html+='<button class="abtn'+(selA===a?' sel':'')+'" onclick="pickAmt(\''+key+'\',\''+aEsc+'\')">'+a+'</button>';
-      });
-      html+='</div>';
-    }
-
-    // 세부 질문 (밥 종류, 계란 형태, 우유 형태, 요구르트 형태)
-    if(item.sub && selF && !never){
-      if(item.sub.opts){
-        var selSub=d.sub||'';
-        html+='<div class="subq">'+
-          '<div class="subq-label">★ '+item.sub.q+'</div>'+
-          '<div class="subq-btns">';
-        item.sub.opts.forEach(function(o){
-          var oEsc=o.replace(/'/g,"\\'");
-          html+='<button class="sqbtn'+(selSub===o?' sel':'')+'" onclick="pickSub(\''+key+'\',\''+oEsc+'\')">'+o+'</button>';
-        });
-        html+='</div></div>';
-      }
-      // 커피 설탕/프림
-      if(item.sub.opts2){
-        item.sub.opts2.forEach(function(sq){
-          var selSub=d[sq.k]||'';
-          html+='<div class="subq">'+
-            '<div class="subq-label">★ '+sq.q+'</div>'+
-            '<div class="subq-btns">';
-          sq.opts.forEach(function(o){
-            var oEsc=o.replace(/'/g,"\\'");
-            html+='<button class="sqbtn'+(selSub===o?' sel':'')+'" onclick="pickSubKey(\''+key+'\',\''+sq.k+'\',\''+oEsc+'\')">'+o+'</button>';
-          });
-          html+='</div></div>';
-        });
-      }
-    }
-
-    html+='</div>';
-  });
-
-  html+='<div class="navbtns">'+
-    (curSec>0?'<button class="navbtn" onclick="goPrev()">← 이전</button>':'')+
-    '<button class="navbtn pr" onclick="goNext()">'+(curSec<S.length-1?'다음 →':'제출하기')+'</button>'+
-    '</div>';
-  document.getElementById('main').innerHTML=html;
-}
-
-function pickSub(key,v){
-  if(!ANS[key]) ANS[key]={};
-  ANS[key].sub=v;
-  renderSec();
-}
-function pickSubKey(key,k,v){
-  if(!ANS[key]) ANS[key]={};
-  ANS[key][k]=v;
-  renderSec();
-}
-function toggleSeason(key,sk){
-  if(!ANS[key]) ANS[key]={};
-  if(!ANS[key].seasons) ANS[key].seasons={};
-  ANS[key].seasons[sk]=!ANS[key].seasons[sk];
-  renderSec();
-}
-function pickFreq(key,f){
-  if(!ANS[key]) ANS[key]={};
-  ANS[key].freq=f;
-  if(f==='거의 안 먹음') ANS[key].amount=null;
-  renderSec();
-}
-function pickAmt(key,a){
-  if(!ANS[key]) ANS[key]={};
-  ANS[key].amount=a;
-  renderSec();
-}
-function goPrev(){if(curSec>0){curSec--;renderSec();window.scrollTo(0,0);}}
-function goNext(){
-  // 미완료 항목 체크
-  var sec=S[curSec];
-  var missing=[];
   sec.items.forEach(function(item,idx){
     var key=curSec+'_'+idx;
     var a=ANS[key]||{};
-    // 섭취빈도 필수
-    if(!a.freq){
-      missing.push(item.n);
-      return;
+    html+='<div class="qcard">'+
+      '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:2px;">'+(idx+1)+'. '+item.n+'</div>'+
+      '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">기준: '+item.base+'</div>';
+
+    // 계절 문항 (과일)
+    if(item.seasonal){
+      var sea=a.season||'';
+      html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 시기</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:8px;">'+
+          '<button class="seasonbtn'+(sea==='seasonal'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'seasonal\')">제철에만</button>'+
+          '<button class="seasonbtn'+(sea==='year'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'year\')">연중 무관</button>'+
+        '</div>';
     }
-    // 거의 안 먹음이면 이하 불필요
-    if(a.freq==='거의 안 먹음') return;
-    // 1회 섭취량 필수
-    if(!a.amount){
-      missing.push(item.n+' (1회 섭취량)');
-      return;
+
+    // 빈도 (9구간) — 계절 안내 문구
+    var freqNote = item.seasonal ? ' <span style="color:#059669;">(드시는 시기 기준)</span>' : '';
+    html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 빈도'+freqNote+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;margin-bottom:8px;">';
+    FREQS.forEach(function(f,fi){
+      var sel=(a.freq===fi)?' sel':'';
+      html+='<button class="fbtn2'+sel+'" onclick="setFreq(\''+key+'\','+fi+')">'+f+'</button>';
+    });
+    html+='</div>';
+
+    // 섭취량 (빈도 선택시만, 거의안먹음 제외)
+    if(a.freq!==undefined && a.freq>0){
+      html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">1회 섭취량</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:4px;">';
+      item.a.forEach(function(amt,ai){
+        var sel=(a.amt===ai)?' sel':'';
+        html+='<button class="amtbtn'+sel+'" onclick="setAmt(\''+key+'\','+ai+')">'+amt+'</button>';
+      });
+      html+='</div>';
+
+      // 특수: 우유 종류
+      if(item.milk){
+        html+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">우유 종류</div><div style="display:flex;gap:6px;">'+
+          ['일반우유','저지방우유'].map(function(m,mi){
+            var sel=(a.milk===mi)?' sel':'';
+            return '<button class="amtbtn'+sel+'" onclick="setMilk(\''+key+'\','+mi+')">'+m+'</button>';
+          }).join('')+'</div>';
+      }
+      // 특수: 커피 하루 3회 초과
+      if(item.coffee && a.freq===8){
+        html+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">하루 몇 잔? (3잔 초과 시)</div>'+
+          '<input type="number" inputmode="numeric" placeholder="예: 5" value="'+(a.coffeeN||'')+'" onchange="setCoffeeN(\''+key+'\',this.value)" style="width:100px;padding:6px;border:1px solid #d1d5db;border-radius:6px;text-align:center;"/>';
+      }
+      // 특수: 주류 초과
+      if(item.alcohol){
+        html+='<div style="font-size:11px;color:#888;margin-top:6px;">※ '+item.alcohol+' 드시면 의료진에게 알려주세요</div>';
+      }
     }
+    html+='</div>';
   });
-  if(missing.length>0){
-    alert('아직 선택하지 않은 항목이 있어요:\n\n• '+missing.slice(0,5).join('\n• ')+(missing.length>5?'\n• 외 '+(missing.length-5)+'개':''));
-    return;
-  }
-  if(curSec<S.length-1){curSec++;renderSec();window.scrollTo(0,0);}
-  else{submitSurvey();}
+
+  html+='<div style="display:flex;gap:10px;margin-top:1rem;">';
+  if(curSec>0) html+='<button onclick="prevSec()" style="flex:1;padding:13px;background:#e5e7eb;color:#374151;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">이전</button>';
+  html+='<button onclick="nextSec()" style="flex:2;padding:13px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">'+(curSec<S.length-1?'다음':'제출하기')+'</button>';
+  html+='</div>';
+  document.getElementById('main').innerHTML=html;
+  window.scrollTo(0,0);
 }
 
-function calcDII(){
-  var score=0,count=0;
+function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0){delete ANS[key].amt;} renderSec(); }
+function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; renderSec(); }
+function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; renderSec(); }
+function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; renderSec(); }
+function setCoffeeN(key,v){ if(!ANS[key])ANS[key]={}; ANS[key].coffeeN=v; }
+function prevSec(){ if(curSec>0){curSec--;renderSec();} }
+function nextSec(){ if(curSec<S.length-1){curSec++;renderSec();} else{submitSurvey();} }
+
+function countAnswered(){
+  var c=0;
+  S.forEach(function(sec,si){ sec.items.forEach(function(it,idx){ var a=ANS[si+'_'+idx]; if(a&&a.freq!==undefined&&a.freq>0)c++; }); });
+  return c;
+}
+
+// ═══════════ 시트 저장 행 생성 ═══════════
+function buildSheetRow(count){
+  var nu=calcNutrition();
+  var b=calcBody()||{bmi:'',cat:'',ideal:'',bmr:'',tdee:'',actLabel:''};
+  var header=['제출일시','참여자번호','성별','나이','키(cm)','몸무게(kg)','BMI','체중분류',
+    '활동량','기초대사량(kcal)','활동대사량(kcal)','표준체중(kg)','물섭취량',
+    '섭취칼로리(kcal)','열량적정성(%)','에너지수지(kcal)',
+    '탄수화물(g)','복합당(g)','당류(g)','식이섬유(g)','단백질(g)','지방(g)',
+    '탄수비율(%)','단백비율(%)','지방비율(%)','응답항목수'];
+  var kcalPct = b.tdee? Math.round(nu.kcal/b.tdee*100):'';
+  var balance = b.tdee? (nu.kcal-b.tdee):'';
+  var sexKo = sex==='M'?'남':(sex==='F'?'여':'');
+  var row=[new Date().toLocaleString('ko-KR'),pid,sexKo,age,ht,wt,b.bmi,b.cat,
+    b.actLabel,b.bmr,b.tdee,b.ideal,WATER_LABEL[water]||'',
+    nu.kcal,kcalPct,balance,
+    nu.carb,nu.complex,nu.sugar,nu.fiber,nu.protein,nu.fat,
+    nu.pctCarb,nu.pctPro,nu.pctFat,count];
+  // 식품별 응답 열
   S.forEach(function(sec,si){
     sec.items.forEach(function(item,idx){
-      var key=si+'_'+idx,a=ANS[key];
-      if(!a||!a.freq||a.freq==='거의 안 먹음') return;
-      count++;
-      var fpd=FSCORES[FREQS.indexOf(a.freq)];
-      var c=0;
-      ANTI.forEach(function(x){if(item.n.indexOf(x)>=0) c=-0.28;});
-      PRO.forEach(function(x){if(item.n.indexOf(x)>=0) c=0.35;});
-      score+=c*fpd*7;
+      header.push('['+sec.name+'] '+item.n);
+      var a=ANS[si+'_'+idx];
+      if(!a||a.freq===undefined||a.freq===0){row.push('');return;}
+      var parts=[FREQS[a.freq]];
+      if(a.amt!==undefined) parts.push(item.a[a.amt]);
+      if(item.seasonal&&a.season) parts.push(a.season==='seasonal'?'제철':'연중');
+      if(item.milk&&a.milk!==undefined) parts.push(['일반','저지방'][a.milk]);
+      if(item.coffee&&a.coffeeN) parts.push(a.coffeeN+'잔');
+      row.push(parts.join(' / '));
     });
   });
-  return {score:parseFloat(score.toFixed(2)),count:count};
+  header.push('_RAW'); row.push(JSON.stringify(ANS));
+  return {header:header,row:row};
 }
 
+// ═══════════ 제출 ═══════════
 function submitSurvey(){
-  var r=calcDII();
-  var nu=calcNutrition();
-  var body=calcBody();
-  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,act:act,body:body,nu:nu,time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),ans:JSON.parse(JSON.stringify(ANS)),dii:r.score,count:r.count};
-  if(!GAS_URL){
-    SUBS.push(rec);
-    showDone(r,false);
-    return;
-  }
-  document.getElementById('main').innerHTML=
-    '<div style="text-align:center;padding:4rem 1rem;color:#888;">'+
-      '<div style="font-size:40px;margin-bottom:12px;">⏳</div>'+
-      '<div style="font-size:15px;font-weight:600;color:#111;">설문을 저장하고 있습니다...</div>'+
-      '<div style="font-size:13px;margin-top:4px;">잠시만 기다려 주세요</div>'+
-    '</div>';
-  var sr=buildSheetRow(r.score,r.count);
+  var cnt=countAnswered();
+  var nu=calcNutrition(), body=calcBody();
+  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,act:act,water:water,body:body,nu:nu,
+    time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),
+    ans:JSON.parse(JSON.stringify(ANS)),count:cnt};
+  if(!GAS_URL){ SUBS.push(rec); showDone(true,false); return; }
+  document.getElementById('main').innerHTML='<div style="text-align:center;padding:4rem 1rem;color:#888;"><div style="font-size:40px;">⏳</div><div style="font-size:15px;font-weight:600;color:#111;margin-top:12px;">저장 중입니다...</div></div>';
+  var sr=buildSheetRow(cnt);
   fetch(GAS_URL,{method:'POST',body:JSON.stringify({header:sr.header,row:sr.row})})
     .then(function(res){return res.json();})
-    .then(function(d){
-      if(d&&d.ok){showDone(r,true);}
-      else{throw new Error('save failed');}
-    })
-    .catch(function(){
-      SUBS.push(rec);
-      showDone(r,false);
-      alert('구글 시트 저장에 실패했습니다.\n네트워크 상태를 확인한 뒤 의료진에게 알려주세요.\n(응답은 이 기기에 임시 보관되었습니다)');
-    });
-}
-
-function showDone(r,saved){
-  var nu=calcNutrition();
-  var nutriCard=
-    '<div class="card">'+
-      '<div style="font-size:13px;color:#888;margin-bottom:10px;">하루 평균 섭취량 (추정)</div>'+
-      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+
-        nbox('열량',nu.kcal,'kcal')+nbox('탄수화물',nu.carb,'g')+nbox('당류',nu.sugar,'g')+
-        nbox('지방',nu.fat,'g')+nbox('단백질',nu.protein,'g')+nbox('식이섬유',nu.fiber,'g')+
-      '</div>'+
-    '</div>';
-  document.getElementById('main').innerHTML=
-    '<div style="text-align:center;padding:2rem 0 1rem;">'+
-      '<div style="font-size:48px;">✅</div>'+
-      '<div style="font-size:20px;font-weight:600;color:#111;margin-top:12px;">설문이 완료되었습니다</div>'+
-      '<div style="font-size:14px;color:#888;margin-top:4px;">참여자 번호: '+pid+'</div>'+
-      (saved
-        ?'<div style="font-size:12px;color:#03543f;background:#def7ec;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">☁️ 구글 시트에 저장되었습니다</div>'
-        :(GAS_URL?'<div style="font-size:12px;color:#92400e;background:#fef3c7;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">⚠️ 이 기기에만 임시 저장됨</div>':''))+
-    '</div>'+
-    nutriCard+
-    '<button class="bigbtn" onclick="restart()">새 설문 시작</button>';
+    .then(function(d){ if(d&&d.ok){showDone(true,true);}else{throw new Error();} })
+    .catch(function(){ SUBS.push(rec); showDone(true,false); alert('구글 시트 저장 실패. 네트워크를 확인하고 의료진에게 알려주세요.'); });
 }
 
 function nbox(label,val,unit){
   return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">'+
     '<div style="font-size:11px;color:#888;">'+label+'</div>'+
     '<div style="font-size:18px;font-weight:600;color:#111;margin-top:2px;">'+val+'</div>'+
-    '<div style="font-size:10px;color:#aaa;">'+unit+'</div>'+
-  '</div>';
+    '<div style="font-size:10px;color:#aaa;">'+unit+'</div></div>';
+}
+function showDone(done,saved){
+  var nu=calcNutrition();
+  document.getElementById('main').innerHTML=
+    '<div style="text-align:center;padding:2rem 0 1rem;">'+
+      '<div style="font-size:48px;">✅</div>'+
+      '<div style="font-size:20px;font-weight:600;color:#111;margin-top:12px;">설문이 완료되었습니다</div>'+
+      '<div style="font-size:14px;color:#888;margin-top:4px;">참여자 번호: '+pid+'</div>'+
+      (saved?'<div style="font-size:12px;color:#03543f;background:#def7ec;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">☁️ 구글 시트에 저장되었습니다</div>'
+        :(GAS_URL?'<div style="font-size:12px;color:#92400e;background:#fef3c7;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">⚠️ 이 기기에만 임시 저장됨</div>':''))+
+    '</div>'+
+    '<div class="qcard"><div style="font-size:13px;color:#888;margin-bottom:10px;">하루 평균 섭취량 (추정)</div>'+
+      '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+
+        nbox('열량',nu.kcal,'kcal')+nbox('탄수화물',nu.carb,'g')+nbox('당류',nu.sugar,'g')+
+        nbox('지방',nu.fat,'g')+nbox('단백질',nu.protein,'g')+nbox('식이섬유',nu.fiber,'g')+
+      '</div></div>'+
+    '<button class="bigbtn" onclick="restart()" style="width:100%;padding:14px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;">새 설문 시작</button>';
 }
 
-function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;act='';ANS={};showId();}
-
+// ═══════════ 의사 모드 ═══════════
 function showDoctor(){
   if(!GAS_URL){renderDoctorList();return;}
-  document.getElementById('main').innerHTML=
-    '<div style="text-align:center;padding:4rem 1rem;color:#888;">'+
-      '<div style="font-size:40px;margin-bottom:12px;">⏳</div>'+
-      '<div style="font-size:15px;font-weight:600;color:#111;">구글 시트에서 불러오는 중...</div>'+
-    '</div>';
-  fetch(GAS_URL)
-    .then(function(res){return res.json();})
-    .then(function(d){
-      SUBS=(d&&d.submissions)?d.submissions:[];
-      SHEET_URL=(d&&d.sheetUrl)?d.sheetUrl:'';
-      renderDoctorList();
-    })
-    .catch(function(){
-      renderDoctorList('⚠️ 구글 시트 연결에 실패하여 이 기기에 저장된 응답만 표시합니다');
-    });
+  document.getElementById('main').innerHTML='<div style="text-align:center;padding:4rem 1rem;color:#888;"><div style="font-size:40px;">⏳</div><div style="font-size:15px;font-weight:600;color:#111;margin-top:12px;">불러오는 중...</div></div>';
+  fetch(GAS_URL).then(function(r){return r.json();}).then(function(d){
+    SUBS=(d&&d.submissions)?d.submissions:[]; SHEET_URL=(d&&d.sheetUrl)?d.sheetUrl:''; renderDoctorList();
+  }).catch(function(){ renderDoctorList('⚠️ 시트 연결 실패, 이 기기 데이터만 표시'); });
 }
 
 function renderDoctorList(warn){
   if(!SUBS.length){
-    document.getElementById('main').innerHTML=
-      (warn?'<div class="note" style="color:#92400e;background:#fef3c7;">'+warn+'</div>':'')+
-      '<div style="text-align:center;padding:3rem 1rem;color:#888;">'+
-        '<div style="font-size:40px;margin-bottom:12px;">📋</div>'+
-        '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">제출된 설문이 없습니다</div>'+
-        '<div style="font-size:13px;">환자 모드에서 설문 완료 후 확인하세요</div>'+
-      '</div>';
+    document.getElementById('main').innerHTML=(warn?'<div class="note" style="color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;margin-bottom:10px;">'+warn+'</div>':'')+
+      '<div style="text-align:center;padding:3rem 1rem;color:#888;"><div style="font-size:40px;">📋</div><div style="font-size:15px;font-weight:600;color:#111;margin:8px 0 4px;">제출된 설문이 없습니다</div><div style="font-size:13px;">환자 모드에서 설문 완료 후 확인하세요</div></div>';
     return;
   }
-  var html=(warn?'<div class="note" style="color:#92400e;background:#fef3c7;">'+warn+'</div>':'')+
+  var html=(warn?'<div class="note" style="color:#92400e;background:#fef3c7;padding:10px;border-radius:8px;margin-bottom:10px;">'+warn+'</div>':'')+
     '<div style="display:flex;align-items:center;margin-bottom:1rem;">'+
       '<div style="font-size:15px;font-weight:600;color:#111;">제출된 설문 ('+SUBS.length+'건)</div>'+
       '<div style="margin-left:auto;display:flex;gap:6px;">'+
-        (SHEET_URL?'<a href="'+SHEET_URL+'" target="_blank" style="font-size:12px;color:#057a55;border:1px solid #057a55;border-radius:8px;padding:6px 12px;text-decoration:none;">📊 시트 열기</a>':'')+
-        (GAS_URL?'<button class="mbtn" onclick="showDoctor()" style="font-size:12px;">🔄 새로고침</button>':'')+
-      '</div>'+
-    '</div>'+
-    '<div class="card" style="padding:0 1.25rem;">';
+        (SHEET_URL?'<a href="'+SHEET_URL+'" target="_blank" style="font-size:12px;color:#057a55;border:1px solid #057a55;border-radius:8px;padding:6px 12px;text-decoration:none;">📊 시트</a>':'')+
+        (GAS_URL?'<button class="mbtn" onclick="showDoctor()" style="font-size:12px;padding:6px 12px;">🔄</button>':'')+
+      '</div></div><div class="qcard" style="padding:0 1rem;">';
   SUBS.forEach(function(s,i){
     var kcalPct=(s.body&&s.body.tdee&&s.nu)? Math.round(s.nu.kcal/s.body.tdee*100):null;
     var lv=kcalPct==null?'':(kcalPct<80?'열량 부족':kcalPct<=120?'열량 적정':'열량 과다');
     var bc=kcalPct==null?'background:#f3f4f6;color:#888':(kcalPct<80?'background:#eff6ff;color:#1e40af':kcalPct<=120?'background:#def7ec;color:#03543f':'background:#fde8e8;color:#9b1c1c');
     var sub=s.ht?('BMI '+(s.body?s.body.bmi:'-')+' · '+(s.nu?s.nu.kcal:'-')+'kcal'):(s.count+'개 항목');
-    html+='<div class="prow" onclick="showDetail('+i+')">'+
-      '<div>'+
-        '<div style="font-size:14px;font-weight:600;color:#111;">참여자 '+s.pid+'</div>'+
-        '<div style="font-size:12px;color:#888;">'+s.time+' · '+sub+'</div>'+
-      '</div>'+
-      '<div style="display:flex;align-items:center;gap:8px;">'+
+    html+='<div class="prow" onclick="showDetail('+i+')" style="display:flex;align-items:center;padding:12px 4px;border-bottom:1px solid #f0f0f0;cursor:pointer;">'+
+      '<div><div style="font-size:14px;font-weight:600;color:#111;">참여자 '+s.pid+'</div>'+
+      '<div style="font-size:12px;color:#888;">'+s.time+' · '+sub+'</div></div>'+
+      '<div style="margin-left:auto;display:flex;align-items:center;gap:8px;">'+
         (kcalPct!=null?'<span style="font-size:13px;font-weight:600;color:#555;">'+kcalPct+'%</span>':'')+
-        (lv?'<span class="badge" style="'+bc+'">'+lv+'</span>':'')+
-      '</div>'+
-    '</div>';
+        (lv?'<span class="badge" style="'+bc+';font-size:11px;padding:3px 8px;border-radius:999px;">'+lv+'</span>':'')+
+      '</div></div>';
   });
   html+='</div>';
   document.getElementById('main').innerHTML=html;
@@ -725,160 +724,78 @@ function bodyCard(s){
   var b=s.body;
   var catColor={'저체중':'#2563eb','정상':'#03543f','과체중':'#92400e','비만':'#9b1c1c','고도비만':'#7f1d1d'}[b.cat]||'#555';
   var kcalPct=(b.tdee&&s.nu)? Math.round(s.nu.kcal/b.tdee*100):null;
-  var balance=(b.tdee&&s.nu)? (s.nu.kcal-b.tdee):null; // 에너지 수지 (섭취 - TDEE)
+  var balance=(b.tdee&&s.nu)? (s.nu.kcal-b.tdee):null;
   var pctColor= kcalPct==null?'#555': (kcalPct<80?'#2563eb': kcalPct<=120?'#03543f':'#9b1c1c');
   var pctLabel= kcalPct==null?'': (kcalPct<80?'부족 경향': kcalPct<=120?'적정':'과다 경향');
   var sexKo=s.sex==='M'?'남':(s.sex==='F'?'여':'-');
-  function box(label,val){
-    return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">'+
-      '<div style="font-size:11px;color:#888;">'+label+'</div>'+
-      '<div style="font-size:15px;font-weight:600;color:#111;margin-top:2px;">'+val+'</div>'+
-    '</div>';
-  }
-  return '<div class="card">'+
-    '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">신체 정보 · 에너지 대사</div>'+
+  function box(l,v){ return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">'+l+'</div><div style="font-size:15px;font-weight:600;color:#111;margin-top:2px;">'+v+'</div></div>'; }
+  return '<div class="qcard"><div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">신체 정보 · 에너지 대사</div>'+
     '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">'+
-      box('성별 / 나이', sexKo+' / '+s.age+'세')+
-      box('키 / 몸무게', s.ht+'cm / '+s.wt+'kg')+
-      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">'+
-        '<div style="font-size:11px;color:#888;">BMI</div>'+
-        '<div style="font-size:15px;font-weight:600;color:'+catColor+';margin-top:2px;">'+b.bmi+' <span style="font-size:12px;">'+b.cat+'</span></div>'+
-      '</div>'+
-      box('표준체중 (BMI 22)', b.ideal+'kg')+
-      box('활동량', b.actLabel+' (×'+b.factor+')')+
-      box('기초대사량 (BMR)', b.bmr+' kcal')+
-      '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;">'+
-        '<div style="font-size:11px;color:#1e40af;">활동대사량 (TDEE)</div>'+
-        '<div style="font-size:15px;font-weight:600;color:#1e40af;margin-top:2px;">'+b.tdee+' kcal</div>'+
-      '</div>'+
-      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">'+
-        '<div style="font-size:11px;color:#888;">섭취 − TDEE (에너지 수지)</div>'+
+      box('성별 / 나이', sexKo+' / '+s.age+'세')+box('키 / 몸무게', s.ht+'cm / '+s.wt+'kg')+
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">BMI</div><div style="font-size:15px;font-weight:600;color:'+catColor+';margin-top:2px;">'+b.bmi+' <span style="font-size:12px;">'+b.cat+'</span></div></div>'+
+      box('표준체중', b.ideal+'kg')+box('활동량', b.actLabel)+box('기초대사량', b.bmr+' kcal')+
+      '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#1e40af;">활동대사량(TDEE)</div><div style="font-size:15px;font-weight:600;color:#1e40af;margin-top:2px;">'+b.tdee+' kcal</div></div>'+
+      '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">섭취 − TDEE</div>'+
         (balance!=null?'<div style="font-size:15px;font-weight:600;color:'+pctColor+';margin-top:2px;">'+(balance>0?'+':'')+balance+' kcal</div>':'')+
-        '<div style="font-size:11px;color:'+pctColor+';margin-top:3px;">'+(kcalPct!=null?'TDEE 대비 '+kcalPct+'% · ':'')+pctLabel+'</div>'+
-      '</div>'+
+        '<div style="font-size:11px;color:'+pctColor+';margin-top:3px;">'+(kcalPct!=null?'TDEE 대비 '+kcalPct+'% · ':'')+pctLabel+'</div></div>'+
+      (s.water!==undefined&&s.water!==''?box('물 섭취량', (WATER_LABEL[s.water]||s.water)):'')+
     '</div>'+
-    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor 공식 · TDEE = BMR × 활동계수 · 표준체중: BMI 22 기준. 참고용 추정치입니다.</div>'+
-  '</div>';
-}
-
-function nutriDetailCard(s){
-  if(!s.nu) return '';
-  var n=s.nu;
-  // 상단: 6개 값 그리드
-  var items=[['섭취칼로리',n.kcal,'kcal'],['탄수화물',n.carb,'g'],['단백질',n.protein,'g'],
-             ['지방',n.fat,'g'],['당류',n.sugar,'g'],['식이섬유',n.fiber,'g']];
-  var grid='';
-  items.forEach(function(it){
-    grid+='<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;">'+
-      '<div style="font-size:11px;color:#888;">'+it[0]+'</div>'+
-      '<div style="font-size:17px;font-weight:600;color:#111;margin-top:2px;">'+it[1]+'</div>'+
-      '<div style="font-size:10px;color:#aaa;">'+it[2]+'</div>'+
-    '</div>';
-  });
-
-  // 다량영양소 열량 비율 막대 (탄수/단백/지방)
-  var macroBar=
-    '<div style="margin-top:14px;">'+
-      '<div style="font-size:12px;color:#555;margin-bottom:6px;">열량 구성비 (탄수 : 단백 : 지방)</div>'+
-      '<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:600;">'+
-        seg(n.pctCarb,'#1a56db','탄수 '+n.pctCarb+'%')+
-        seg(n.pctPro,'#057a55','단백 '+n.pctPro+'%')+
-        seg(n.pctFat,'#d97706','지방 '+n.pctFat+'%')+
-      '</div>'+
-      '<div style="font-size:10px;color:#aaa;margin-top:4px;">권장 비율 — 탄수 55~65% · 단백 7~20% · 지방 15~30% (한국인 영양소 섭취기준)</div>'+
-    '</div>';
-
-  // 탄수화물 세부 구성 (복합당/당류/식이섬유)
-  var carbTot=n.complex+n.sugar+n.fiber;
-  var cp=function(x){ return carbTot>0?Math.round(x/carbTot*100):0; };
-  var carbBar=
-    '<div style="margin-top:14px;">'+
-      '<div style="font-size:12px;color:#555;margin-bottom:6px;">탄수화물 세부 구성 (총 '+n.carb+'g)</div>'+
-      '<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:600;">'+
-        seg(cp(n.complex),'#4f46e5','복합당 '+cp(n.complex)+'%')+
-        seg(cp(n.sugar),'#db2777','단순당 '+cp(n.sugar)+'%')+
-        seg(cp(n.fiber),'#059669','섬유 '+cp(n.fiber)+'%')+
-      '</div>'+
-      '<div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:5px;">'+
-        '<span>복합당(전분 등) '+n.complex+'g · '+cp(n.complex)+'%</span>'+
-        '<span>단순당 '+n.sugar+'g · '+cp(n.sugar)+'%</span>'+
-        '<span>식이섬유 '+n.fiber+'g · '+cp(n.fiber)+'%</span>'+
-      '</div>'+
-      '<div style="font-size:10px;color:#aaa;margin-top:4px;">식이섬유·당류는 총탄수화물에 포함되는 하위 항목입니다.</div>'+
-    '</div>';
-
-  return '<div class="card">'+
-    '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">하루 평균 영양 섭취 (추정)</div>'+
-    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+grid+'</div>'+
-    macroBar+carbBar+
-  '</div>';
+    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor · TDEE=BMR×활동계수 · 표준체중: BMI 22. 참고용 추정치.</div></div>';
 }
 
 function seg(pct,color,label){
   if(pct<=0) return '';
   return '<div style="flex:'+pct+' 0 0;background:'+color+';display:flex;align-items:center;justify-content:center;min-width:0;overflow:hidden;white-space:nowrap;padding:0 2px;">'+(pct>=8?label:'')+'</div>';
 }
+function nutriDetailCard(s){
+  if(!s.nu) return '';
+  var n=s.nu;
+  var items=[['섭취칼로리',n.kcal,'kcal'],['탄수화물',n.carb,'g'],['단백질',n.protein,'g'],['지방',n.fat,'g'],['당류',n.sugar,'g'],['식이섬유',n.fiber,'g']];
+  var grid=items.map(function(it){return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;text-align:center;"><div style="font-size:11px;color:#888;">'+it[0]+'</div><div style="font-size:17px;font-weight:600;color:#111;margin-top:2px;">'+it[1]+'</div><div style="font-size:10px;color:#aaa;">'+it[2]+'</div></div>';}).join('');
+  var macroBar='<div style="margin-top:14px;"><div style="font-size:12px;color:#555;margin-bottom:6px;">열량 구성비 (탄수 : 단백 : 지방)</div>'+
+    '<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:600;">'+
+      seg(n.pctCarb,'#1a56db','탄수 '+n.pctCarb+'%')+seg(n.pctPro,'#057a55','단백 '+n.pctPro+'%')+seg(n.pctFat,'#d97706','지방 '+n.pctFat+'%')+
+    '</div><div style="font-size:10px;color:#aaa;margin-top:4px;">권장: 탄수 55~65% · 단백 7~20% · 지방 15~30%</div></div>';
+  var carbTot=n.complex+n.sugar+n.fiber, cp=function(x){return carbTot>0?Math.round(x/carbTot*100):0;};
+  var carbBar='<div style="margin-top:14px;"><div style="font-size:12px;color:#555;margin-bottom:6px;">탄수화물 세부 구성 (총 '+n.carb+'g)</div>'+
+    '<div style="display:flex;height:26px;border-radius:6px;overflow:hidden;font-size:11px;color:#fff;font-weight:600;">'+
+      seg(cp(n.complex),'#4f46e5','복합당 '+cp(n.complex)+'%')+seg(cp(n.sugar),'#db2777','단순당 '+cp(n.sugar)+'%')+seg(cp(n.fiber),'#059669','섬유 '+cp(n.fiber)+'%')+
+    '</div><div style="display:flex;justify-content:space-between;font-size:11px;color:#888;margin-top:5px;">'+
+      '<span>복합당 '+n.complex+'g · '+cp(n.complex)+'%</span><span>단순당 '+n.sugar+'g · '+cp(n.sugar)+'%</span><span>식이섬유 '+n.fiber+'g · '+cp(n.fiber)+'%</span></div>'+
+    '<div style="font-size:10px;color:#aaa;margin-top:4px;">식이섬유·당류는 총탄수화물에 포함되는 하위 항목입니다.</div></div>';
+  return '<div class="qcard"><div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">하루 평균 영양 섭취 (추정)</div>'+
+    '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+grid+'</div>'+macroBar+carbBar+'</div>';
+}
 
 function showDetail(i){
   var s=SUBS[i];
-  var SCOLS={spring:'#059669',summer:'#d97706',fall:'#b45309',winter:'#2563eb'};
-  var SBGS={spring:'#ecfdf5',summer:'#fffbeb',fall:'#fef3c7',winter:'#eff6ff'};
-  var SLABELS={spring:'봄',summer:'여름',fall:'가을',winter:'겨울'};
-  var html=
-    '<button onclick="renderDoctorList()" style="background:none;border:none;color:#1a56db;font-size:14px;cursor:pointer;margin-bottom:1rem;padding:0;">← 목록으로</button>'+
+  var html='<button onclick="renderDoctorList()" style="background:none;border:none;color:#1a56db;font-size:14px;cursor:pointer;margin-bottom:1rem;padding:0;">← 목록으로</button>'+
     '<div style="font-size:16px;font-weight:600;color:#111;margin-bottom:1rem;">참여자 '+s.pid+' <span style="font-size:13px;color:#888;font-weight:400;">· '+s.time+'</span></div>'+
-    bodyCard(s)+
-    nutriDetailCard(s)+
-    '<div class="card">'+
-      '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">식품별 응답 내역</div>';
-
+    bodyCard(s)+nutriDetailCard(s)+
+    '<div class="qcard"><div style="font-size:14px;font-weight:600;color:#111;margin-bottom:10px;">식품별 응답 내역</div>';
+  var ans=s.ans||{};
   S.forEach(function(sec,si){
-    var has=sec.items.some(function(item,idx){
-      var a=s.ans[si+'_'+idx];
-      return a&&a.freq;
-    });
-    if(!has) return;
-    html+='<div style="font-size:12px;font-weight:600;color:#1a56db;background:#eff6ff;border-radius:6px;padding:4px 8px;margin:10px 0 6px;">'+sec.name+'</div>';
+    var secItems=[];
     sec.items.forEach(function(item,idx){
-      var a=s.ans[si+'_'+idx];
-      if(!a||!a.freq||a.freq==='거의 안 먹음') return;
-      html+='<div class="nrow">'+
-        '<div style="flex:1;padding-right:8px;">'+
-          '<div style="color:#555;line-height:1.4;font-size:13px;">'+item.n+'</div>';
-      // 계절 배지
-      if(item.seasonal&&a.seasons){
-        html+='<div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">';
-        Object.keys(a.seasons).forEach(function(sk){
-          if(a.seasons[sk]){
-            html+='<span style="font-size:11px;padding:2px 7px;border-radius:999px;background:'+SBGS[sk]+';color:'+SCOLS[sk]+';border:1px solid '+SCOLS[sk]+'50;">'+SLABELS[sk]+'</span>';
-          }
-        });
-        html+='</div>';
-      }
-      // 세부 질문 응답
-      if(item.sub){
-        if(item.sub.opts&&a.sub){
-          html+='<div style="font-size:11px;color:#7c3aed;margin-top:3px;">→ '+a.sub+'</div>';
-        }
-        if(item.sub.opts2){
-          item.sub.opts2.forEach(function(sq){
-            if(a[sq.k]) html+='<div style="font-size:11px;color:#7c3aed;margin-top:2px;">'+sq.q+' '+a[sq.k]+'</div>';
-          });
-        }
-      }
-      html+='</div>'+
-        '<div style="text-align:right;white-space:nowrap;">'+
-          '<div style="color:#111;font-size:12px;">'+a.freq+'</div>'+
-          (a.amount?'<div style="color:#888;font-size:11px;">'+a.amount+'</div>':'')+
-        '</div>'+
-      '</div>';
+      var a=ans[si+'_'+idx];
+      if(!a||a.freq===undefined||a.freq===0) return;
+      var parts=[FREQS[a.freq]];
+      if(a.amt!==undefined&&item.a) parts.push(item.a[a.amt]);
+      if(item.seasonal&&a.season) parts.push(a.season==='seasonal'?'제철':'연중');
+      secItems.push('<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span style="color:#374151;">'+item.n+'</span><span style="color:#888;">'+parts.join(' / ')+'</span></div>');
     });
+    if(secItems.length){
+      html+='<div style="font-size:12px;font-weight:600;color:#1a56db;background:#eff6ff;padding:4px 8px;border-radius:6px;margin:8px 0 4px;">'+sec.name+'</div>'+secItems.join('');
+    }
   });
   html+='</div>';
   document.getElementById('main').innerHTML=html;
+  window.scrollTo(0,0);
 }
 
+// 초기화
 showId();
+
 </script>
 </body>
 </html>
