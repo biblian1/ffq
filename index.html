@@ -66,6 +66,10 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo', sa
 .seasonbtn { flex:1; padding:8px 4px; border:1px solid #d1d5db; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; text-align:center; }
 .seasonbtn.sel { background:#059669; color:#fff; border-color:#059669; }
 .qcard { background:#fff; border-radius:12px; padding:1rem 1.25rem; margin-bottom:0.75rem; border:1px solid #e5e7eb; }
+.atitle { font-weight:600; font-size:13px; }
+.adesc { font-size:12px; color:#888; margin-left:8px; }
+.abtn.sel .atitle, .abtn.sel .adesc { color:#fff; }
+.abtn.sel .adesc { color:#cfe0ff; }
 .progress { height:6px; background:#e5e7eb; border-radius:3px; overflow:hidden; margin-bottom:1rem; }
 .progress > div { height:100%; background:#1a56db; transition:width 0.3s; }
 
@@ -368,7 +372,7 @@ var S=[
 ];
 
 
-var GAS_URL='https://script.google.com/macros/s/AKfycbz4d8mpCncraQRb6LJrUWf4ApzSGk453NdcFF3TYzafLgTDPd5qwKb9I6zgbhLfsTBj/exec';
+var GAS_URL='https://script.google.com/macros/s/AKfycbwqC9OJow_ISIC-2wVDwu_zsoKhCK7oecUx7ljDSEqjALqM1C_eHIgNijCV15hpJU2O/exec';
 
 var curSec=0, pid='', sex='', age=0, ht=0, wt=0, waist=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
 
@@ -425,19 +429,9 @@ function calcBody(){
   var bmr = (sex==='M') ? (10*wt+6.25*ht-5*age+5) : (10*wt+6.25*ht-5*age-161);
   bmr=Math.round(bmr);
   var factor=ACT_FACTOR[act]||1.2, tdee=Math.round(bmr*factor);
-  // 허리둘레(인치→cm) 및 WHtR
-  var waistCm='', whtr='', whtrCat='', wcCat='';
-  if(waist){
-    waistCm=+(waist*2.54).toFixed(1);
-    whtr=+(waistCm/ht).toFixed(3);
-    // WHtR 0.5 이상 복부비만 위험
-    whtrCat = whtr<0.4?'낮음': whtr<0.5?'정상': whtr<0.6?'복부비만 위험':'복부비만 고위험';
-    // 대한비만학회 허리둘레 복부비만: 남 90cm, 여 85cm
-    var wcCut = (sex==='M')?90:85;
-    wcCat = waistCm>=wcCut?'복부비만':'정상';
-  }
+  // 바지 허리 사이즈는 실측 허리둘레가 아니므로 cm 변환·WHtR·복부비만 판정을 하지 않는다
   return {bmi:bmi,cat:cat,ideal:ideal,bmr:bmr,tdee:tdee,factor:factor,actLabel:ACT_LABEL[act]||'',
-          waist:waist,waistCm:waistCm,whtr:whtr,whtrCat:whtrCat,wcCat:wcCat};
+          pantsInch:waist};
 }
 
 // ═══════════ 모드 ═══════════
@@ -451,9 +445,9 @@ function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;waist=0;act='';water='
 
 // ═══════════ 문진 화면 (성별·나이·키·몸무게·활동량·물) ═══════════
 function actBtn(key,title,desc){
-  return '<button class="abtn" id="act_'+key+'" onclick="pickAct(\''+key+'\')" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:11px 14px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">'+
-    '<span style="font-weight:600;font-size:13px;">'+title+'</span>'+
-    '<span style="font-size:12px;color:#888;margin-left:8px;">'+desc+'</span></button>';
+  return '<button class="abtn" id="act_'+key+'" onclick="pickAct(\''+key+'\')" style="display:block;width:100%;text-align:left;margin-bottom:6px;padding:11px 14px;">'+
+    '<span class="atitle">'+title+'</span>'+
+    '<span class="adesc">'+desc+'</span></button>';
 }
 function waterBtn(i){
   return '<button class="fbtn2" id="water_'+i+'" onclick="pickWater('+i+')">'+WATER_LABEL[i]+'</button>';
@@ -478,8 +472,8 @@ function showId(){
       '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:10px;">기본 정보</div>'+
       '<div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">성별</div>'+
       '<div class="fbtns" style="display:flex;gap:8px;margin-bottom:10px;">'+
-        '<button class="fbtn" id="sex_M" onclick="pickSex(\'M\')" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">남성</button>'+
-        '<button class="fbtn" id="sex_F" onclick="pickSex(\'F\')" style="flex:1;padding:9px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;">여성</button>'+
+        '<button class="fbtn" id="sex_M" onclick="pickSex(\'M\')" style="flex:1;padding:9px;">남성</button>'+
+        '<button class="fbtn" id="sex_F" onclick="pickSex(\'F\')" style="flex:1;padding:9px;">여성</button>'+
       '</div>'+
       '<div style="display:flex;gap:10px;">'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">나이(만)</div>'+
@@ -490,9 +484,9 @@ function showId(){
           '<input class="idinput" id="wtinput" type="number" inputmode="decimal" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
       '</div>'+
       '<div style="display:flex;gap:10px;margin-top:10px;">'+
-        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">허리둘레(인치)</div>'+
+        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">평소 입는 바지 허리 사이즈(인치)</div>'+
           '<input class="idinput" id="waistinput" type="number" inputmode="decimal" placeholder="예: 32" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
-          '<div style="font-size:11px;color:#aaa;margin-top:3px;">바지 사이즈가 아닌 실제 허리둘레</div></div>'+
+          '<div style="font-size:11px;color:#aaa;margin-top:3px;">실제 허리둘레와는 차이가 있을 수 있습니다</div></div>'+
       '</div>'+
     '</div>'+
     '<div class="qcard">'+
@@ -529,13 +523,79 @@ function startSurvey(){
   if(!ag||ag<1||ag>120){alert('나이를 확인해 주세요.');return;}
   if(!h||h<80||h>230){alert('키를 확인해 주세요.');return;}
   if(!w||w<20||w>250){alert('몸무게를 확인해 주세요.');return;}
-  if(!wa||wa<15||wa>70){alert('허리둘레를 인치로 확인해 주세요. (15~70인치)');return;}
+  if(!wa||wa<15||wa>70){alert('바지 허리 사이즈를 인치로 확인해 주세요. (15~70인치)');return;}
   if(!act){alert('활동량을 선택해 주세요.');return;}
   if(water===''){alert('물 섭취량을 선택해 주세요.');return;}
   pid=v; age=ag; ht=h; wt=w; waist=wa; ANS={}; curSec=0; renderSec();
 }
 
 // ═══════════ 설문 렌더링 (섹션별) ═══════════
+// 문항 카드 1개의 내부 HTML (스크롤 보존을 위해 카드 단위로 갱신)
+function itemInner(item,idx,key){
+  var a=ANS[key]||{};
+  var h=
+      '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:2px;">'+(idx+1)+'. '+item.n+'</div>'+
+      '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">기준: '+item.base+'</div>';
+
+    // 계절 문항 (과일)
+    if(item.seasonal){
+      var sea=a.season||'';
+      h+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 시기</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:8px;">'+
+          '<button class="seasonbtn'+(sea==='seasonal'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'seasonal\')">제철에만</button>'+
+          '<button class="seasonbtn'+(sea==='year'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'year\')">연중 무관</button>'+
+        '</div>';
+    }
+
+    // 빈도 (9구간) — 계절 안내 문구
+    var freqNote = item.seasonal ? ' <span style="color:#059669;">(드시는 시기 기준)</span>' : '';
+    h+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 빈도'+freqNote+'</div>'+
+      '<div style="display:flex;flex-wrap:wrap;margin-bottom:8px;">';
+    FREQS.forEach(function(f,fi){
+      var sel=(a.freq===fi)?' sel':'';
+      h+='<button class="fbtn2'+sel+'" onclick="setFreq(\''+key+'\','+fi+')">'+f+'</button>';
+    });
+    h+='</div>';
+
+    // 섭취량 (빈도 선택시만, 거의안먹음 제외)
+    if(a.freq!==undefined && a.freq>0){
+      h+='<div style="font-size:12px;color:#555;margin-bottom:4px;">1회 섭취량</div>'+
+        '<div style="display:flex;gap:6px;margin-bottom:4px;">';
+      item.a.forEach(function(amt,ai){
+        var sel=(a.amt===ai)?' sel':'';
+        h+='<button class="amtbtn'+sel+'" onclick="setAmt(\''+key+'\','+ai+')">'+amt+'</button>';
+      });
+      h+='</div>';
+
+      // 특수: 우유 종류
+      if(item.milk){
+        h+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">우유 종류</div><div style="display:flex;gap:6px;">'+
+          ['일반우유','저지방우유'].map(function(m,mi){
+            var sel=(a.milk===mi)?' sel':'';
+            return '<button class="amtbtn'+sel+'" onclick="setMilk(\''+key+'\','+mi+')">'+m+'</button>';
+          }).join('')+'</div>';
+      }
+      // 특수: 커피 하루 3회 초과
+      if(item.coffee && a.freq===8){
+        h+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">하루 몇 잔? (3잔 초과 시)</div>'+
+          '<input type="number" inputmode="numeric" placeholder="예: 5" value="'+(a.coffeeN||'')+'" onchange="setCoffeeN(\''+key+'\',this.value)" style="width:100px;padding:6px;border:1px solid #d1d5db;border-radius:6px;text-align:center;"/>';
+      }
+      // 특수: 주류 초과
+      if(item.alcohol){
+        h+='<div style="font-size:11px;color:#888;margin-top:6px;">※ '+item.alcohol+' 드시면 의료진에게 알려주세요</div>';
+      }
+    }
+  return h;
+}
+
+// 해당 문항 카드만 다시 그린다 → 화면 스크롤 위치가 그대로 유지됨
+function refreshItem(key){
+  var idx=parseInt(key.split('_')[1],10);
+  var item=S[curSec].items[idx];
+  var el=document.getElementById('q_'+key);
+  if(el && item) el.innerHTML=itemInner(item,idx,key);
+}
+
 function renderSec(){
   var sec=S[curSec];
   var prog=Math.round((curSec)/S.length*100);
@@ -546,60 +606,7 @@ function renderSec(){
 
   sec.items.forEach(function(item,idx){
     var key=curSec+'_'+idx;
-    var a=ANS[key]||{};
-    html+='<div class="qcard">'+
-      '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:2px;">'+(idx+1)+'. '+item.n+'</div>'+
-      '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">기준: '+item.base+'</div>';
-
-    // 계절 문항 (과일)
-    if(item.seasonal){
-      var sea=a.season||'';
-      html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 시기</div>'+
-        '<div style="display:flex;gap:6px;margin-bottom:8px;">'+
-          '<button class="seasonbtn'+(sea==='seasonal'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'seasonal\')">제철에만</button>'+
-          '<button class="seasonbtn'+(sea==='year'?' sel':'')+'" onclick="setSeason(\''+key+'\',\'year\')">연중 무관</button>'+
-        '</div>';
-    }
-
-    // 빈도 (9구간) — 계절 안내 문구
-    var freqNote = item.seasonal ? ' <span style="color:#059669;">(드시는 시기 기준)</span>' : '';
-    html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 빈도'+freqNote+'</div>'+
-      '<div style="display:flex;flex-wrap:wrap;margin-bottom:8px;">';
-    FREQS.forEach(function(f,fi){
-      var sel=(a.freq===fi)?' sel':'';
-      html+='<button class="fbtn2'+sel+'" onclick="setFreq(\''+key+'\','+fi+')">'+f+'</button>';
-    });
-    html+='</div>';
-
-    // 섭취량 (빈도 선택시만, 거의안먹음 제외)
-    if(a.freq!==undefined && a.freq>0){
-      html+='<div style="font-size:12px;color:#555;margin-bottom:4px;">1회 섭취량</div>'+
-        '<div style="display:flex;gap:6px;margin-bottom:4px;">';
-      item.a.forEach(function(amt,ai){
-        var sel=(a.amt===ai)?' sel':'';
-        html+='<button class="amtbtn'+sel+'" onclick="setAmt(\''+key+'\','+ai+')">'+amt+'</button>';
-      });
-      html+='</div>';
-
-      // 특수: 우유 종류
-      if(item.milk){
-        html+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">우유 종류</div><div style="display:flex;gap:6px;">'+
-          ['일반우유','저지방우유'].map(function(m,mi){
-            var sel=(a.milk===mi)?' sel':'';
-            return '<button class="amtbtn'+sel+'" onclick="setMilk(\''+key+'\','+mi+')">'+m+'</button>';
-          }).join('')+'</div>';
-      }
-      // 특수: 커피 하루 3회 초과
-      if(item.coffee && a.freq===8){
-        html+='<div style="font-size:12px;color:#555;margin:8px 0 4px;">하루 몇 잔? (3잔 초과 시)</div>'+
-          '<input type="number" inputmode="numeric" placeholder="예: 5" value="'+(a.coffeeN||'')+'" onchange="setCoffeeN(\''+key+'\',this.value)" style="width:100px;padding:6px;border:1px solid #d1d5db;border-radius:6px;text-align:center;"/>';
-      }
-      // 특수: 주류 초과
-      if(item.alcohol){
-        html+='<div style="font-size:11px;color:#888;margin-top:6px;">※ '+item.alcohol+' 드시면 의료진에게 알려주세요</div>';
-      }
-    }
-    html+='</div>';
+    html+='<div class="qcard" id="q_'+key+'">'+itemInner(item,idx,key)+'</div>';
   });
 
   html+='<div style="display:flex;gap:10px;margin-top:1rem;">';
@@ -610,10 +617,10 @@ function renderSec(){
   window.scrollTo(0,0);
 }
 
-function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0){delete ANS[key].amt;} renderSec(); }
-function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; renderSec(); }
-function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; renderSec(); }
-function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; renderSec(); }
+function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0){delete ANS[key].amt;} refreshItem(key); }
+function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; refreshItem(key); }
+function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; refreshItem(key); }
+function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; refreshItem(key); }
 function setCoffeeN(key,v){ if(!ANS[key])ANS[key]={}; ANS[key].coffeeN=v; }
 function prevSec(){ if(curSec>0){curSec--;renderSec();} }
 function nextSec(){ if(curSec<S.length-1){curSec++;renderSec();} else{submitSurvey();} }
@@ -627,9 +634,9 @@ function countAnswered(){
 // ═══════════ 시트 저장 행 생성 ═══════════
 function buildSheetRow(count){
   var nu=calcNutrition();
-  var b=calcBody()||{bmi:'',cat:'',ideal:'',bmr:'',tdee:'',actLabel:''};
+  var b=calcBody()||{bmi:'',cat:'',ideal:'',bmr:'',tdee:'',actLabel:'',pantsInch:''};
   var header=['제출일시','참여자번호','성별','나이','키(cm)','몸무게(kg)','BMI','체중분류',
-    '허리둘레(인치)','허리둘레(cm)','WHtR','WHtR판정','복부비만판정',
+    '바지사이즈(인치)',
     '활동량','기초대사량(kcal)','활동대사량(kcal)','표준체중(kg)','물섭취량',
     '섭취칼로리(kcal)','열량적정성(%)','에너지수지(kcal)',
     '탄수화물(g)','복합당(g)','당류(g)','식이섬유(g)','단백질(g)','지방(g)',
@@ -638,7 +645,7 @@ function buildSheetRow(count){
   var balance = b.tdee? (nu.kcal-b.tdee):'';
   var sexKo = sex==='M'?'남':(sex==='F'?'여':'');
   var row=[new Date().toLocaleString('ko-KR'),pid,sexKo,age,ht,wt,b.bmi,b.cat,
-    (b.waist||''),(b.waistCm||''),(b.whtr||''),(b.whtrCat||''),(b.wcCat||''),
+    (b.pantsInch||''),
     b.actLabel,b.bmr,b.tdee,b.ideal,WATER_LABEL[water]||'',
     nu.kcal,kcalPct,balance,
     nu.carb,nu.complex,nu.sugar,nu.fiber,nu.protein,nu.fat,
@@ -760,17 +767,11 @@ function bodyCard(s){
         (balance!=null?'<div style="font-size:15px;font-weight:600;color:'+pctColor+';margin-top:2px;">'+(balance>0?'+':'')+balance+' kcal</div>':'')+
         '<div style="font-size:11px;color:'+pctColor+';margin-top:3px;">'+(kcalPct!=null?'TDEE 대비 '+kcalPct+'% · ':'')+pctLabel+'</div></div>'+
       (s.water!==undefined&&s.water!==''?box('물 섭취량', (WATER_LABEL[s.water]||s.water)):'')+
-      (b.waistCm?(function(){
-        var wColor= b.whtrCat==='낮음'?'#2563eb': b.whtrCat==='정상'?'#03543f': b.whtrCat==='복부비만 위험'?'#92400e':'#9b1c1c';
-        return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">허리둘레</div>'+
-          '<div style="font-size:15px;font-weight:600;color:#111;margin-top:2px;">'+b.waist+'인치 <span style="font-size:12px;color:#888;">('+b.waistCm+'cm)</span></div>'+
-          '<div style="font-size:11px;color:'+(b.wcCat==='복부비만'?'#9b1c1c':'#03543f')+';margin-top:2px;">'+b.wcCat+' (남90·여85cm 기준)</div></div>'+
-        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">WHtR (허리÷키)</div>'+
-          '<div style="font-size:15px;font-weight:600;color:'+wColor+';margin-top:2px;">'+b.whtr+'</div>'+
-          '<div style="font-size:11px;color:'+wColor+';margin-top:2px;">'+b.whtrCat+' (0.5 이상 위험)</div></div>';
-      })():'')+
+      (b.pantsInch?'<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">바지사이즈</div>'+
+        '<div style="font-size:15px;font-weight:600;color:#111;margin-top:2px;">'+b.pantsInch+'인치</div>'+
+        '<div style="font-size:11px;color:#aaa;margin-top:2px;">허리둘레 미측정</div></div>':'')+
     '</div>'+
-    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor · TDEE=BMR×활동계수 · 표준체중: BMI 22 · WHtR: 허리둘레(cm)÷키(cm). 참고용 추정치.</div></div>';
+    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor · TDEE=BMR×활동계수 · 표준체중: BMI 22. 참고용 추정치. 바지사이즈는 실측 허리둘레가 아니므로 WHtR·복부비만 판정에 사용하지 않습니다.</div></div>';
 }
 
 function seg(pct,color,label){
