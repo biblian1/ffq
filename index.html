@@ -348,9 +348,8 @@ var S=[
     {n:"액상요구르트",base:"중 1개(80ml)",a:["소1", "중1", "대1"]},
     {n:"호상요구르트(떠먹는 요구르트)",base:"1개(100g)",a:["½", "1", "2"]},
     {n:"두유",base:"1컵(200ml)",a:["½", "1", "1½"]},
-    {n:"커피",base:"2ts(믹스)",a:["1", "2", "3"],coffee:true},
-    {n:"프림",base:"2ts(10ml)",a:["1", "2", "3"]},
-    {n:"설탕",base:"2ts(10ml)",a:["1", "2", "3"]},
+    {n:"커피",base:"2ts(믹스)",a:["1", "2", "3"],coffee:true,
+      addons:[{n:"프림",base:"2ts(10ml)",a:["1", "2", "3"]},{n:"설탕",base:"2ts(10ml)",a:["1", "2", "3"]}]},
     {n:"녹차",base:"1컵(200ml)",a:["½", "1", "1½"]},
     {n:"탄산음료(콜라, 사이다, 과일탄산음료)",base:"1컵(200ml)",a:["½", "1", "1½"]},
     {n:"과일주스",base:"1컵(200ml)",a:["½", "1", "1½"]},
@@ -374,7 +373,9 @@ var S=[
 
 var GAS_URL='https://script.google.com/macros/s/AKfycbz4d8mpCncraQRb6LJrUWf4ApzSGk453NdcFF3TYzafLgTDPd5qwKb9I6zgbhLfsTBj/exec';
 
-var curSec=0, pid='', sex='', age=0, ht=0, wt=0, waist=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
+var curSec=0, pid='', sex='', age=0, ht=0, wt=0, waist=0, act='', water='', extraFood='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
+function escHtml(x){ return String(x==null?'':x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function setExtra(v){ extraFood=v; }
 
 var ACT_FACTOR={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryactive:1.9};
 var ACT_LABEL={sedentary:'매우 비활동적',light:'가벼운 활동',moderate:'중간 활동',active:'매우 활동적',veryactive:'극도로 활동적'};
@@ -398,6 +399,16 @@ function itemDailyFactor(item, a){
   return fpd * ratio * seasonAdj;
 }
 
+function addonDailyFactor(item, a, ai){
+  if(!a || a.freq===undefined || a.freq===0) return 0;
+  if(!a.addons) return 0;
+  var v=a.addons[ai];
+  if(v===undefined || v===null) return 0;
+  var ad=item.addons[ai];
+  var ratio = ad.a.length===4 ? [0.5,1,1.5,2][v] : [0.5,1,1.5][v];
+  return FSCORES[a.freq] * ratio;
+}
+
 function calcNutrition(){
   var tot=[0,0,0,0,0,0];
   S.forEach(function(sec,si){
@@ -406,9 +417,17 @@ function calcNutrition(){
       var f=itemDailyFactor(item,a);
       if(f<=0) return;
       var nu=NUTRI[item.n];
-      if(!nu) return;
-      var perServ=nu.g/100;
-      for(var k=0;k<6;k++) tot[k]+= nu.p[k]*perServ*f;
+      if(nu){ var perServ=nu.g/100; for(var k=0;k<6;k++) tot[k]+= nu.p[k]*perServ*f; }
+      // 커피 부재료(프림·설탕) — 커피 빈도 × 부재료 양
+      if(item.addons){
+        item.addons.forEach(function(ad,ai){
+          var af=addonDailyFactor(item,a,ai);
+          if(af<=0) return;
+          var an=NUTRI[ad.n]; if(!an) return;
+          var ps=an.g/100;
+          for(var k=0;k<6;k++) tot[k]+= an.p[k]*ps*af;
+        });
+      }
     });
   });
   var carb=+tot[1].toFixed(1), sugar=+tot[2].toFixed(1), fat=+tot[3].toFixed(1),
@@ -441,7 +460,8 @@ function setMode(m){
   document.getElementById('mode-doctor').className='mbtn'+(m==='doctor'?' active':'');
   if(m==='patient') showId(); else showDoctor();
 }
-function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;waist=0;act='';water='';ANS={};showId();}
+function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;waist=0;act='';water='';extraFood='';ANS={};showId();}
+function backToBasic(){ showId(); window.scrollTo(0,0); }
 
 // ═══════════ 문진 화면 (성별·나이·키·몸무게·활동량·물) ═══════════
 function actBtn(key,title,desc){
@@ -484,7 +504,7 @@ function showId(){
     '<div class="qcard">'+
       '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">연구 참여자 번호</div>'+
       '<div style="font-size:13px;color:#888;margin-bottom:10px;">의료진이 알려드린 번호를 입력해 주세요</div>'+
-      '<input class="idinput" id="pidinput" placeholder="예: 001" maxlength="10" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;text-align:center;letter-spacing:2px;"/>'+
+      '<input class="idinput" id="pidinput" placeholder="예: 001" maxlength="10" value="'+escHtml(pid)+'" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:18px;text-align:center;letter-spacing:2px;"/>'+
     '</div>'+
     '<div class="qcard">'+
       '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:10px;">기본 정보</div>'+
@@ -495,15 +515,15 @@ function showId(){
       '</div>'+
       '<div style="display:flex;gap:10px;">'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">나이(만)</div>'+
-          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" min="1" max="120" step="1" placeholder="45" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" min="1" max="120" step="1" placeholder="45" value="'+(age||'')+'" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">키(cm)</div>'+
-          '<input class="idinput" id="htinput" type="number" inputmode="decimal" min="80" max="230" step="1" placeholder="170" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="htinput" type="number" inputmode="decimal" min="80" max="230" step="1" placeholder="170" value="'+(ht||'')+'" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">몸무게(kg)</div>'+
-          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" min="20" max="250" step="0.5" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" min="20" max="250" step="0.5" placeholder="65" value="'+(wt||'')+'" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
       '</div>'+
       '<div style="display:flex;gap:10px;margin-top:10px;">'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">평소 입는 바지 허리 사이즈(인치)</div>'+
-          '<input class="idinput" id="waistinput" type="number" inputmode="decimal" min="15" max="70" step="1" placeholder="30" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
+          '<input class="idinput" id="waistinput" type="number" inputmode="decimal" min="15" max="70" step="1" placeholder="30" value="'+(waist||'')+'" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
           '<div style="font-size:11px;color:#aaa;margin-top:3px;">실제 허리둘레와는 차이가 있을 수 있습니다</div></div>'+
       '</div>'+
     '</div>'+
@@ -545,7 +565,8 @@ function startSurvey(){
   if(!wa||wa<15||wa>70){alert('바지 허리 사이즈를 인치로 확인해 주세요. (15~70인치)');return;}
   if(!act){alert('활동량을 선택해 주세요.');return;}
   if(water===''){alert('물 섭취량을 선택해 주세요.');return;}
-  pid=v; age=ag; ht=h; wt=w; waist=wa; ANS={}; curSec=0; renderSec();
+  if(pid!==v){ ANS={}; extraFood=''; }   // 참여자번호가 바뀌면 새 설문
+  pid=v; age=ag; ht=h; wt=w; waist=wa; curSec=0; renderSec();
 }
 
 // ═══════════ 설문 렌더링 (섹션별) ═══════════
@@ -585,6 +606,17 @@ function itemInner(item,idx,key){
         h+='<button class="amtbtn'+sel+'" onclick="setAmt(\''+key+'\','+ai+')">'+amt+'</button>';
       });
       h+='</div>';
+
+      // 커피 부재료: 프림 · 설탕
+      if(item.addons){
+        item.addons.forEach(function(ad,ai){
+          var cur=(a.addons&&a.addons[ai]!==undefined&&a.addons[ai]!==null)?a.addons[ai]:null;
+          h+='<div class="subq"><div class="subq-label">'+ad.n+' <span style="color:#888;font-weight:400;">· 기준 '+ad.base+'</span></div><div class="subq-btns">'+
+            '<button class="sqbtn'+(cur===null?' sel':'')+'" onclick="setAddon(\''+key+'\','+ai+',null)">안 넣음</button>'+
+            ad.a.map(function(x,xi){ return '<button class="sqbtn'+(cur===xi?' sel':'')+'" onclick="setAddon(\''+key+'\','+ai+','+xi+')">'+x+'</button>'; }).join('')+
+          '</div></div>';
+        });
+      }
 
       // 특수: 우유 종류
       if(item.milk){
@@ -628,8 +660,15 @@ function renderSec(){
     html+='<div class="qcard" id="q_'+key+'">'+itemInner(item,idx,key)+'</div>';
   });
 
+  if(curSec===S.length-1){
+    html+='<div class="qcard"><div style="font-size:14px;font-weight:600;color:#111;margin-bottom:4px;">추가로 드시는 음식 <span style="font-size:12px;color:#888;font-weight:400;">(선택)</span></div>'+
+      '<div style="font-size:12px;color:#888;margin-bottom:8px;">앞의 목록에 없지만 자주 드시는 음식이 있으면 자유롭게 적어주세요. 종류와 대략적인 빈도·양을 함께 적어주시면 좋습니다.</div>'+
+      '<textarea id="extrafood" rows="4" oninput="setExtra(this.value)" placeholder="예) 콩국수 여름에 주 1회 한 그릇 / 흑염소즙 매일 1포 / 단백질보충제 주 3회" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-family:inherit;line-height:1.6;resize:vertical;box-sizing:border-box;">'+escHtml(extraFood)+'</textarea>'+
+      '<div style="font-size:11px;color:#aaa;margin-top:6px;">여기에 적으신 내용은 영양 계산에는 반영되지 않고, 의료진이 따로 확인합니다.</div></div>';
+  }
+
   html+='<div style="display:flex;gap:10px;margin-top:1rem;">';
-  if(curSec>0) html+='<button onclick="prevSec()" style="flex:1;padding:13px;background:#e5e7eb;color:#374151;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">이전</button>';
+  html+='<button onclick="'+(curSec>0?'prevSec()':'backToBasic()')+'" style="flex:1;padding:13px;background:#e5e7eb;color:#374151;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">'+(curSec>0?'이전':'← 기본 정보')+'</button>';
   html+='<button onclick="nextSec()" style="flex:2;padding:13px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">'+(curSec<S.length-1?'다음':'제출하기')+'</button>';
   html+='</div>';
   document.getElementById('main').innerHTML=html;
@@ -640,6 +679,8 @@ function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0)
 function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; refreshItem(key); }
 function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; refreshItem(key); }
 function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; refreshItem(key); }
+function setAddon(key,ai,v){ if(!ANS[key])ANS[key]={}; if(!ANS[key].addons)ANS[key].addons={};
+  if(v===null) delete ANS[key].addons[ai]; else ANS[key].addons[ai]=v; refreshItem(key); }
 function setCoffeeN(key,v){ if(!ANS[key])ANS[key]={}; ANS[key].coffeeN=v; }
 function prevSec(){ if(curSec>0){curSec--;renderSec();} }
 function nextSec(){ if(curSec<S.length-1){curSec++;renderSec();} else{submitSurvey();} }
@@ -659,7 +700,7 @@ function buildSheetRow(count){
     '활동량','기초대사량(kcal)','활동대사량(kcal)','표준체중(kg)','물섭취량',
     '섭취칼로리(kcal)','열량적정성(%)','에너지수지(kcal)',
     '탄수화물(g)','복합당(g)','당류(g)','식이섬유(g)','단백질(g)','지방(g)',
-    '탄수비율(%)','단백비율(%)','지방비율(%)','응답항목수'];
+    '탄수비율(%)','단백비율(%)','지방비율(%)','응답항목수','추가 음식(주관식)'];
   var kcalPct = b.tdee? Math.round(nu.kcal/b.tdee*100):'';
   var balance = b.tdee? (nu.kcal-b.tdee):'';
   var sexKo = sex==='M'?'남':(sex==='F'?'여':'');
@@ -668,19 +709,30 @@ function buildSheetRow(count){
     b.actLabel,b.bmr,b.tdee,b.ideal,WATER_LABEL[water]||'',
     nu.kcal,kcalPct,balance,
     nu.carb,nu.complex,nu.sugar,nu.fiber,nu.protein,nu.fat,
-    nu.pctCarb,nu.pctPro,nu.pctFat,count];
+    nu.pctCarb,nu.pctPro,nu.pctFat,count,extraFood];
   // 식품별 응답 열
   S.forEach(function(sec,si){
     sec.items.forEach(function(item,idx){
       header.push('['+sec.name+'] '+item.n);
       var a=ANS[si+'_'+idx];
-      if(!a||a.freq===undefined||a.freq===0){row.push('');return;}
-      var parts=[FREQS[a.freq]];
-      if(a.amt!==undefined) parts.push(item.a[a.amt]);
-      if(item.seasonal&&a.season) parts.push(a.season==='seasonal'?'제철':'연중');
-      if(item.milk&&a.milk!==undefined) parts.push(['일반','저지방'][a.milk]);
-      if(item.coffee&&a.coffeeN) parts.push(a.coffeeN+'잔');
-      row.push(parts.join(' / '));
+      var on=!(!a||a.freq===undefined||a.freq===0);
+      if(!on){ row.push(''); }
+      else {
+        var parts=[FREQS[a.freq]];
+        if(a.amt!==undefined) parts.push(item.a[a.amt]);
+        if(item.seasonal&&a.season) parts.push(a.season==='seasonal'?'제철':'연중');
+        if(item.milk&&a.milk!==undefined) parts.push(['일반','저지방'][a.milk]);
+        if(item.coffee&&a.coffeeN) parts.push(a.coffeeN+'잔');
+        row.push(parts.join(' / '));
+      }
+      // 부재료는 별도 열로 (분석 편의)
+      if(item.addons){
+        item.addons.forEach(function(ad,ai){
+          header.push('['+sec.name+'] '+item.n+' - '+ad.n);
+          var v=(on&&a.addons)?a.addons[ai]:undefined;
+          row.push((v===undefined||v===null)?'':(FREQS[a.freq]+' / '+ad.a[v]));
+        });
+      }
     });
   });
   header.push('_RAW'); row.push(JSON.stringify(ANS));
@@ -688,19 +740,39 @@ function buildSheetRow(count){
 }
 
 // ═══════════ 제출 ═══════════
+var LAST_SAVE_ERROR='';
 function submitSurvey(){
   var cnt=countAnswered();
   var nu=calcNutrition(), body=calcBody();
-  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,waist:waist,act:act,water:water,body:body,nu:nu,
+  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,waist:waist,act:act,water:water,body:body,nu:nu,extra:extraFood,
     time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),
     ans:JSON.parse(JSON.stringify(ANS)),count:cnt};
   if(!GAS_URL){ SUBS.push(rec); showDone(true,false); return; }
   document.getElementById('main').innerHTML='<div style="text-align:center;padding:4rem 1rem;color:#888;"><div style="font-size:40px;">⏳</div><div style="font-size:15px;font-weight:600;color:#111;margin-top:12px;">저장 중입니다...</div></div>';
   var sr=buildSheetRow(cnt);
   fetch(GAS_URL,{method:'POST',body:JSON.stringify({header:sr.header,row:sr.row})})
-    .then(function(res){return res.json();})
-    .then(function(d){ if(d&&d.ok){showDone(true,true);}else{throw new Error();} })
-    .catch(function(){ SUBS.push(rec); showDone(true,false); alert('구글 시트 저장 실패. 네트워크를 확인하고 의료진에게 알려주세요.'); });
+    .then(function(res){
+      if(!res.ok) throw new Error('HTTP '+res.status+' — 배포 URL이 유효하지 않거나 삭제된 배포입니다');
+      return res.text();
+    })
+    .then(function(t){
+      var d;
+      try { d=JSON.parse(t); }
+      catch(e){
+        if(/accounts\.google\.com|Sign in|로그인/i.test(t)) throw new Error('구글 로그인 요구 — 배포 액세스 권한을 "모든 사용자"로 변경하세요');
+        if(/doPost/i.test(t)) throw new Error('doPost 함수를 찾을 수 없음 — Code.gs 저장 후 "배포 관리"에서 새 버전으로 재배포하세요');
+        throw new Error('응답이 JSON이 아님: '+t.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,150));
+      }
+      if(!d || !d.ok) throw new Error('시트 쓰기 오류 — '+((d&&d.error)||'원인 불명'));
+      LAST_SAVE_ERROR=''; showDone(true,true);
+    })
+    .catch(function(e){
+      var m=String(e&&e.message||e);
+      if(/Failed to fetch|NetworkError|Load failed/i.test(m)) m='요청이 차단됨 — 배포 액세스 권한이 "모든 사용자"가 아니거나 네트워크/CORS 문제입니다';
+      console.error('[저장 실패]', e);
+      LAST_SAVE_ERROR=m;
+      SUBS.push(rec); showDone(true,false);
+    });
 }
 
 function nbox(label,val,unit){
@@ -717,7 +789,9 @@ function showDone(done,saved){
       '<div style="font-size:20px;font-weight:600;color:#111;margin-top:12px;">설문이 완료되었습니다</div>'+
       '<div style="font-size:14px;color:#888;margin-top:4px;">참여자 번호: '+pid+'</div>'+
       (saved?'<div style="font-size:12px;color:#03543f;background:#def7ec;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">☁️ 구글 시트에 저장되었습니다</div>'
-        :(GAS_URL?'<div style="font-size:12px;color:#92400e;background:#fef3c7;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">⚠️ 이 기기에만 임시 저장됨</div>':''))+
+        :(GAS_URL?'<div style="font-size:12px;color:#92400e;background:#fef3c7;display:inline-block;border-radius:999px;padding:4px 12px;margin-top:10px;">⚠️ 이 기기에만 임시 저장됨 · 의료진에게 알려주세요</div>'+
+            (LAST_SAVE_ERROR?'<details style="margin-top:8px;text-align:left;"><summary style="font-size:11px;color:#aaa;cursor:pointer;">의료진용 · 실패 원인 보기</summary><div style="font-size:11px;color:#92400e;background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:8px;margin-top:6px;word-break:break-all;line-height:1.5;">'+LAST_SAVE_ERROR+'</div></details>':'')
+         :''))+
     '</div>'+
     '<div class="qcard"><div style="font-size:13px;color:#888;margin-bottom:10px;">하루 평균 섭취량 (추정)</div>'+
       '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">'+
@@ -847,6 +921,8 @@ function showDetail(i){
       var parts=[FREQS[a.freq]];
       if(a.amt!==undefined&&item.a) parts.push(item.a[a.amt]);
       if(item.seasonal&&a.season) parts.push(a.season==='seasonal'?'제철':'연중');
+      if(item.addons&&a.addons){ item.addons.forEach(function(ad,ai){ var v=a.addons[ai];
+        if(v!==undefined&&v!==null) parts.push(ad.n+' '+ad.a[v]); }); }
       secItems.push('<div style="display:flex;justify-content:space-between;padding:5px 0;font-size:13px;"><span style="color:#374151;">'+item.n+'</span><span style="color:#888;">'+parts.join(' / ')+'</span></div>');
     });
     if(secItems.length){
@@ -854,6 +930,10 @@ function showDetail(i){
     }
   });
   html+='</div>';
+  if(s.extra){
+    html+='<div class="qcard"><div style="font-size:14px;font-weight:600;color:#111;margin-bottom:8px;">추가로 드시는 음식 (주관식)</div>'+
+      '<div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;">'+escHtml(s.extra)+'</div></div>';
+  }
   document.getElementById('main').innerHTML=html;
   window.scrollTo(0,0);
 }
