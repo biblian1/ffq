@@ -372,7 +372,7 @@ var S=[
 ];
 
 
-var GAS_URL='https://script.google.com/macros/s/AKfycbwqC9OJow_ISIC-2wVDwu_zsoKhCK7oecUx7ljDSEqjALqM1C_eHIgNijCV15hpJU2O/exec';
+var GAS_URL='https://script.google.com/macros/s/AKfycbz4d8mpCncraQRb6LJrUWf4ApzSGk453NdcFF3TYzafLgTDPd5qwKb9I6zgbhLfsTBj/exec';
 
 var curSec=0, pid='', sex='', age=0, ht=0, wt=0, waist=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
 
@@ -461,6 +461,24 @@ function refreshBasic(){
   for(var i=0;i<6;i++){ var el=document.getElementById('water_'+i); if(el) el.className='fbtn2'+(water===i?' sel':''); }
 }
 
+
+// 숫자 입력칸이 비어 있을 때 스피너(▲▼)나 방향키를 누르면 1이 아니라 기본값부터 시작한다.
+// 값을 미리 채워 넣지는 않으므로(placeholder 유지), 응답자가 기본값을 그대로 제출할 위험은 없다.
+var NUM_SEED={ ageinput:45, htinput:170, wtinput:65, waistinput:30 };
+function bindNumSeeds(){
+  Object.keys(NUM_SEED).forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    var def=NUM_SEED[id];
+    el.addEventListener('keydown',function(ev){
+      if(this.value==='' && (ev.key==='ArrowUp'||ev.key==='ArrowDown')){ this.value=String(def); ev.preventDefault(); }
+    });
+    el.addEventListener('mousedown',function(ev){
+      // 오른쪽 끝 스피너 영역 클릭인지 판정
+      if(this.value==='' && ev.offsetX > this.clientWidth-26){ this.value=String(def); ev.preventDefault(); this.focus(); }
+    });
+  });
+}
+
 function showId(){
   document.getElementById('main').innerHTML=
     '<div class="qcard">'+
@@ -477,15 +495,15 @@ function showId(){
       '</div>'+
       '<div style="display:flex;gap:10px;">'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">나이(만)</div>'+
-          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" placeholder="45" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="ageinput" type="number" inputmode="numeric" min="1" max="120" step="1" placeholder="45" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">키(cm)</div>'+
-          '<input class="idinput" id="htinput" type="number" inputmode="decimal" placeholder="170" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="htinput" type="number" inputmode="decimal" min="80" max="230" step="1" placeholder="170" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">몸무게(kg)</div>'+
-          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
+          '<input class="idinput" id="wtinput" type="number" inputmode="decimal" min="20" max="250" step="0.5" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
       '</div>'+
       '<div style="display:flex;gap:10px;margin-top:10px;">'+
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">평소 입는 바지 허리 사이즈(인치)</div>'+
-          '<input class="idinput" id="waistinput" type="number" inputmode="decimal" placeholder="예: 32" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
+          '<input class="idinput" id="waistinput" type="number" inputmode="decimal" min="15" max="70" step="1" placeholder="30" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
           '<div style="font-size:11px;color:#aaa;margin-top:3px;">실제 허리둘레와는 차이가 있을 수 있습니다</div></div>'+
       '</div>'+
     '</div>'+
@@ -510,6 +528,7 @@ function showId(){
     '</div>'+
     '<button class="bigbtn" onclick="startSurvey()" style="width:100%;padding:14px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;">설문 시작하기</button>';
   refreshBasic();
+  bindNumSeeds();
 }
 
 function startSurvey(){
@@ -712,9 +731,24 @@ function showDone(done,saved){
 function showDoctor(){
   if(!GAS_URL){renderDoctorList();return;}
   document.getElementById('main').innerHTML='<div style="text-align:center;padding:4rem 1rem;color:#888;"><div style="font-size:40px;">⏳</div><div style="font-size:15px;font-weight:600;color:#111;margin-top:12px;">불러오는 중...</div></div>';
-  fetch(GAS_URL).then(function(r){return r.json();}).then(function(d){
+  fetch(GAS_URL).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status+' — 배포 URL이 유효하지 않거나 삭제된 배포입니다');
+    return r.text();
+  }).then(function(t){
+    var d;
+    try { d=JSON.parse(t); }
+    catch(e){
+      if(/accounts\.google\.com|Sign in|로그인/i.test(t)) throw new Error('구글 로그인 요구 — 배포 설정에서 액세스 권한을 "모든 사용자"로 변경하세요');
+      if(/doGet/i.test(t)) throw new Error('doGet 함수를 찾을 수 없음 — Code.gs 저장 후 "배포 관리"에서 새 버전으로 재배포하세요');
+      throw new Error('응답이 JSON이 아님: '+t.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));
+    }
     SUBS=(d&&d.submissions)?d.submissions:[]; SHEET_URL=(d&&d.sheetUrl)?d.sheetUrl:''; renderDoctorList();
-  }).catch(function(){ renderDoctorList('⚠️ 시트 연결 실패, 이 기기 데이터만 표시'); });
+  }).catch(function(e){
+    var m=String(e&&e.message||e);
+    if(/Failed to fetch|NetworkError|Load failed/i.test(m)) m='요청이 차단됨 — 배포 액세스 권한이 "모든 사용자"가 아니거나, 네트워크/CORS 문제입니다';
+    console.error('[시트 연결 실패]', e);
+    renderDoctorList('⚠️ 시트 연결 실패 · '+m+' (이 기기 데이터만 표시)');
+  });
 }
 
 function renderDoctorList(warn){
