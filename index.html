@@ -601,7 +601,7 @@ function josa(w){
   if(c<0xAC00||c>0xD7A3) return '를';
   return ((c-0xAC00)%28) ? '을' : '를';
 }
-var HILITE='', HILITE_MSG='';
+var API_VER='', HILITE='', HILITE_MSG='';
 function clearHilite(key){
   if(HILITE!==key) return;
   HILITE=''; HILITE_MSG='';
@@ -812,7 +812,7 @@ var LAST_SAVE_ERROR='';
 function submitSurvey(){
   var cnt=countAnswered();
   var nu=calcNutrition(), body=calcBody();
-  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,waist:waist,act:act,water:water,body:body,nu:nu,extra:extraFood,
+  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,waist:waist,act:act,water:water,body:body,nu:nu,extra:extraFood,local:true,
     time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),
     ans:JSON.parse(JSON.stringify(ANS)),count:cnt};
   if(!GAS_URL){ SUBS.push(rec); showDone(true,false); return; }
@@ -884,7 +884,7 @@ function showDoctor(){
       if(/doGet/i.test(t)) throw new Error('doGet 함수를 찾을 수 없음 — Code.gs 저장 후 "배포 관리"에서 새 버전으로 재배포하세요');
       throw new Error('응답이 JSON이 아님: '+t.replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim().slice(0,120));
     }
-    SUBS=(d&&d.submissions)?d.submissions:[]; SHEET_URL=(d&&d.sheetUrl)?d.sheetUrl:''; renderDoctorList();
+    SUBS=(d&&d.submissions)?d.submissions:[]; SHEET_URL=(d&&d.sheetUrl)?d.sheetUrl:''; API_VER=(d&&d.apiVersion)?d.apiVersion:''; renderDoctorList();
   }).catch(function(e){
     var m=String(e&&e.message||e);
     if(/Failed to fetch|NetworkError|Load failed/i.test(m)) m='요청이 차단됨 — 배포 액세스 권한이 "모든 사용자"가 아니거나, 네트워크/CORS 문제입니다';
@@ -905,6 +905,9 @@ function renderDoctorList(warn){
       '<div style="margin-left:auto;display:flex;gap:6px;">'+
         (SHEET_URL?'<a href="'+SHEET_URL+'" target="_blank" style="font-size:12px;color:#057a55;border:1px solid #057a55;border-radius:8px;padding:6px 12px;text-decoration:none;">📊 시트</a>':'')+
         (GAS_URL?'<button class="mbtn" onclick="showDoctor()" style="font-size:12px;padding:6px 12px;">🔄</button>':'')+
+        (GAS_URL?(API_VER==='v5-foods'
+          ? '<span style="font-size:11px;color:#03543f;background:#def7ec;border-radius:999px;padding:4px 10px;margin-left:6px;">API 최신</span>'
+          : '<span style="font-size:11px;color:#9b1c1c;background:#fde8e8;border-radius:999px;padding:4px 10px;margin-left:6px;">API 구버전 '+(API_VER||'미확인')+' · 재배포 필요</span>'):'')+
       '</div></div><div class="qcard" style="padding:0 1rem;">';
   SUBS.forEach(function(s,i){
     var kcalPct=(s.body&&s.body.tdee&&s.nu)? Math.round(s.nu.kcal/s.body.tdee*100):null;
@@ -1014,9 +1017,13 @@ function showDetail(i){
   });
   if(!/padding:5px 0/.test(html)){
     var why=[], fix='';
-    if(s.foods===undefined || s.foods===null){
-      why.push('시트에서 식품 응답 열을 받지 못했습니다');
-      fix='Apps Script의 Code.gs가 구버전입니다. 최신 코드를 붙여넣고 [배포 관리 → 새 버전]으로 재배포하세요.';
+    if(s.local){
+      why.push('이 응답은 시트 저장에 실패해 이 기기에만 임시 저장된 건입니다');
+      fix='시트에는 기록되지 않았습니다. 참여자에게 다시 제출을 요청하시거나, 스프레드시트에 직접 입력해 주세요.';
+    } else if(s.foods===undefined || s.foods===null){
+      why.push('시트에서 식품 응답 열을 받지 못했습니다 (수신 API: '+(API_VER||'없음')+')');
+      fix='앱이 옛 배포 주소를 보고 있습니다. index.html의 GAS_URL과 실제 배포 URL이 같은지 확인하세요. '+
+          '"새 배포"를 누르면 URL이 새로 생기므로, 같은 주소를 유지하려면 [배포 관리 → 연필 → 새 버전]을 사용해야 합니다.';
     } else if(!Object.keys(s.foods).length){
       why.push('시트의 식품 응답 열이 비어 있습니다');
       fix=(s.count>0)
