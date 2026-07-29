@@ -570,15 +570,71 @@ function startSurvey(){
 }
 
 // ═══════════ 설문 렌더링 (섹션별) ═══════════
+// 문항별 미응답 항목명을 반환 ('' = 완료)
+// '거의 안 먹음'을 고르면 섭취시기·섭취량·우유종류는 묻지 않는다
+function itemMissing(item,key){
+  var a=ANS[key];
+  if(!a || a.freq===undefined) return '섭취 빈도';
+  if(a.freq===0) return '';
+  if(item.seasonal && !a.season) return '섭취 시기';
+  if(a.amt===undefined) return '1회 섭취량';
+  if(item.milk && a.milk===undefined) return '우유 종류';
+  return '';
+}
+// 해당 섹션에서 처음 걸리는 미응답 문항
+function firstMissing(si){
+  var sec=S[si];
+  for(var i=0;i<sec.items.length;i++){
+    var m=itemMissing(sec.items[i], si+'_'+i);
+    if(m) return {sec:si, idx:i, key:si+'_'+i, why:m, name:sec.items[i].n};
+  }
+  return null;
+}
+function secDoneCount(si){
+  var sec=S[si], n=0;
+  for(var i=0;i<sec.items.length;i++) if(!itemMissing(sec.items[i], si+'_'+i)) n++;
+  return n;
+}
+// 받침 유무에 따라 을/를 선택
+function josa(w){
+  var c=String(w).charCodeAt(String(w).length-1);
+  if(c<0xAC00||c>0xD7A3) return '를';
+  return ((c-0xAC00)%28) ? '을' : '를';
+}
+var HILITE='', HILITE_MSG='';
+function clearHilite(key){
+  if(HILITE!==key) return;
+  HILITE=''; HILITE_MSG='';
+  var el=document.getElementById('q_'+key);
+  if(el){ el.style.borderColor=''; el.style.boxShadow=''; }
+}
+function markMissing(bad){
+  HILITE=bad.key; HILITE_MSG=(bad.idx+1)+'. '+bad.name+' — '+bad.why+josa(bad.why)+' 선택해 주세요';
+  refreshItem(bad.key);
+  var el=document.getElementById('q_'+bad.key);
+  if(el){
+    el.style.borderColor='#f05252';
+    el.style.boxShadow='0 0 0 3px #fde8e8';
+    if(el.scrollIntoView) el.scrollIntoView({behavior:'smooth',block:'center'});
+  }
+}
+function refreshSecCount(){
+  var el=document.getElementById('seccount'); if(!el) return;
+  var d=secDoneCount(curSec), t=S[curSec].items.length;
+  el.innerHTML = (d<t)
+    ? '<span style="color:#92400e;">응답 '+d+' / '+t+' · '+(t-d)+'개 남음</span>'
+    : '<span style="color:#03543f;">응답 '+t+' / '+t+' 완료</span>';
+}
+
 // 문항 카드 1개의 내부 HTML (스크롤 보존을 위해 카드 단위로 갱신)
 function itemInner(item,idx,key){
   var a=ANS[key]||{};
-  var h=
+  var h=((HILITE===key&&HILITE_MSG)?'<div style="font-size:12px;font-weight:600;color:#9b1c1c;background:#fde8e8;border-radius:6px;padding:7px 10px;margin-bottom:8px;line-height:1.4;">⚠️ '+HILITE_MSG+'</div>':'')+
       '<div style="font-size:14px;font-weight:600;color:#111;margin-bottom:2px;">'+(idx+1)+'. '+item.n+'</div>'+
       '<div style="font-size:11px;color:#aaa;margin-bottom:8px;">기준: '+item.base+'</div>';
 
     // 계절 문항 (과일)
-    if(item.seasonal){
+    if(item.seasonal && a.freq!==0){
       var sea=a.season||'';
       h+='<div style="font-size:12px;color:#555;margin-bottom:4px;">섭취 시기</div>'+
         '<div style="display:flex;gap:6px;margin-bottom:8px;">'+
@@ -653,7 +709,8 @@ function renderSec(){
   var html='<div class="progress"><div style="width:'+prog+'%"></div></div>'+
     '<div style="font-size:13px;color:#888;margin-bottom:2px;">'+(curSec+1)+' / '+S.length+' 식품군</div>'+
     '<div style="font-size:20px;font-weight:700;color:#111;margin-bottom:2px;">'+sec.name+'</div>'+
-    '<div style="font-size:12px;color:#888;margin-bottom:1rem;">각 음식을 지난 1년간 평균 얼마나 드셨는지 선택해 주세요</div>';
+    '<div style="font-size:12px;color:#888;margin-bottom:4px;">각 음식을 지난 1년간 평균 얼마나 드셨는지 선택해 주세요. 모든 문항에 답하셔야 다음으로 넘어갑니다.</div>'+
+    '<div id="seccount" style="font-size:12px;font-weight:600;margin-bottom:1rem;"></div>';
 
   sec.items.forEach(function(item,idx){
     var key=curSec+'_'+idx;
@@ -672,18 +729,29 @@ function renderSec(){
   html+='<button onclick="nextSec()" style="flex:2;padding:13px;background:#1a56db;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">'+(curSec<S.length-1?'다음':'제출하기')+'</button>';
   html+='</div>';
   document.getElementById('main').innerHTML=html;
+  refreshSecCount();
   window.scrollTo(0,0);
 }
 
-function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0){delete ANS[key].amt;} refreshItem(key); }
-function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; refreshItem(key); }
-function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; refreshItem(key); }
-function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; refreshItem(key); }
+function setFreq(key,fi){ if(!ANS[key])ANS[key]={}; ANS[key].freq=fi; if(fi===0){delete ANS[key].amt;} clearHilite(key); refreshItem(key); refreshSecCount(); }
+function setAmt(key,ai){ if(!ANS[key])ANS[key]={}; ANS[key].amt=ai; clearHilite(key); refreshItem(key); refreshSecCount(); }
+function setSeason(key,s){ if(!ANS[key])ANS[key]={}; ANS[key].season=s; clearHilite(key); refreshItem(key); refreshSecCount(); }
+function setMilk(key,mi){ if(!ANS[key])ANS[key]={}; ANS[key].milk=mi; clearHilite(key); refreshItem(key); refreshSecCount(); }
 function setAddon(key,ai,v){ if(!ANS[key])ANS[key]={}; if(!ANS[key].addons)ANS[key].addons={};
   if(v===null) delete ANS[key].addons[ai]; else ANS[key].addons[ai]=v; refreshItem(key); }
 function setCoffeeN(key,v){ if(!ANS[key])ANS[key]={}; ANS[key].coffeeN=v; }
 function prevSec(){ if(curSec>0){curSec--;renderSec();} }
-function nextSec(){ if(curSec<S.length-1){curSec++;renderSec();} else{submitSurvey();} }
+function nextSec(){
+  var bad=firstMissing(curSec);
+  if(bad){ markMissing(bad); return; }
+  if(curSec<S.length-1){ curSec++; renderSec(); return; }
+  // 제출 직전 전체 식품군 재점검 (뒤로 갔다 온 경우 대비)
+  for(var i=0;i<S.length;i++){
+    var b=firstMissing(i);
+    if(b){ curSec=i; renderSec(); markMissing(b); return; }
+  }
+  submitSurvey();
+}
 
 function countAnswered(){
   var c=0;
