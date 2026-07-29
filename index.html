@@ -370,7 +370,7 @@ var S=[
 
 var GAS_URL='https://script.google.com/macros/s/AKfycbz4d8mpCncraQRb6LJrUWf4ApzSGk453NdcFF3TYzafLgTDPd5qwKb9I6zgbhLfsTBj/exec';
 
-var curSec=0, pid='', sex='', age=0, ht=0, wt=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
+var curSec=0, pid='', sex='', age=0, ht=0, wt=0, waist=0, act='', water='', ANS={}, SUBS=[], SHEET_URL='', mode='patient';
 
 var ACT_FACTOR={sedentary:1.2,light:1.375,moderate:1.55,active:1.725,veryactive:1.9};
 var ACT_LABEL={sedentary:'매우 비활동적',light:'가벼운 활동',moderate:'중간 활동',active:'매우 활동적',veryactive:'극도로 활동적'};
@@ -425,7 +425,19 @@ function calcBody(){
   var bmr = (sex==='M') ? (10*wt+6.25*ht-5*age+5) : (10*wt+6.25*ht-5*age-161);
   bmr=Math.round(bmr);
   var factor=ACT_FACTOR[act]||1.2, tdee=Math.round(bmr*factor);
-  return {bmi:bmi,cat:cat,ideal:ideal,bmr:bmr,tdee:tdee,factor:factor,actLabel:ACT_LABEL[act]||''};
+  // 허리둘레(인치→cm) 및 WHtR
+  var waistCm='', whtr='', whtrCat='', wcCat='';
+  if(waist){
+    waistCm=+(waist*2.54).toFixed(1);
+    whtr=+(waistCm/ht).toFixed(3);
+    // WHtR 0.5 이상 복부비만 위험
+    whtrCat = whtr<0.4?'낮음': whtr<0.5?'정상': whtr<0.6?'복부비만 위험':'복부비만 고위험';
+    // 대한비만학회 허리둘레 복부비만: 남 90cm, 여 85cm
+    var wcCut = (sex==='M')?90:85;
+    wcCat = waistCm>=wcCut?'복부비만':'정상';
+  }
+  return {bmi:bmi,cat:cat,ideal:ideal,bmr:bmr,tdee:tdee,factor:factor,actLabel:ACT_LABEL[act]||'',
+          waist:waist,waistCm:waistCm,whtr:whtr,whtrCat:whtrCat,wcCat:wcCat};
 }
 
 // ═══════════ 모드 ═══════════
@@ -435,7 +447,7 @@ function setMode(m){
   document.getElementById('mode-doctor').className='mbtn'+(m==='doctor'?' active':'');
   if(m==='patient') showId(); else showDoctor();
 }
-function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;act='';water='';ANS={};showId();}
+function restart(){curSec=0;pid='';sex='';age=0;ht=0;wt=0;waist=0;act='';water='';ANS={};showId();}
 
 // ═══════════ 문진 화면 (성별·나이·키·몸무게·활동량·물) ═══════════
 function actBtn(key,title,desc){
@@ -477,6 +489,11 @@ function showId(){
         '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">몸무게(kg)</div>'+
           '<input class="idinput" id="wtinput" type="number" inputmode="decimal" placeholder="65" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/></div>'+
       '</div>'+
+      '<div style="display:flex;gap:10px;margin-top:10px;">'+
+        '<div style="flex:1;"><div class="flabel" style="font-size:13px;color:#555;margin-bottom:5px;">허리둘레(인치)</div>'+
+          '<input class="idinput" id="waistinput" type="number" inputmode="decimal" placeholder="예: 32" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:16px;text-align:center;"/>'+
+          '<div style="font-size:11px;color:#aaa;margin-top:3px;">바지 사이즈가 아닌 실제 허리둘레</div></div>'+
+      '</div>'+
     '</div>'+
     '<div class="qcard">'+
       '<div style="font-size:15px;font-weight:600;color:#111;margin-bottom:4px;">평소 활동량</div>'+
@@ -508,12 +525,14 @@ function startSurvey(){
   var ag=parseInt(document.getElementById('ageinput').value);
   var h=parseFloat(document.getElementById('htinput').value);
   var w=parseFloat(document.getElementById('wtinput').value);
+  var wa=parseFloat(document.getElementById('waistinput').value);
   if(!ag||ag<1||ag>120){alert('나이를 확인해 주세요.');return;}
   if(!h||h<80||h>230){alert('키를 확인해 주세요.');return;}
   if(!w||w<20||w>250){alert('몸무게를 확인해 주세요.');return;}
+  if(!wa||wa<15||wa>70){alert('허리둘레를 인치로 확인해 주세요. (15~70인치)');return;}
   if(!act){alert('활동량을 선택해 주세요.');return;}
   if(water===''){alert('물 섭취량을 선택해 주세요.');return;}
-  pid=v; age=ag; ht=h; wt=w; ANS={}; curSec=0; renderSec();
+  pid=v; age=ag; ht=h; wt=w; waist=wa; ANS={}; curSec=0; renderSec();
 }
 
 // ═══════════ 설문 렌더링 (섹션별) ═══════════
@@ -610,6 +629,7 @@ function buildSheetRow(count){
   var nu=calcNutrition();
   var b=calcBody()||{bmi:'',cat:'',ideal:'',bmr:'',tdee:'',actLabel:''};
   var header=['제출일시','참여자번호','성별','나이','키(cm)','몸무게(kg)','BMI','체중분류',
+    '허리둘레(인치)','허리둘레(cm)','WHtR','WHtR판정','복부비만판정',
     '활동량','기초대사량(kcal)','활동대사량(kcal)','표준체중(kg)','물섭취량',
     '섭취칼로리(kcal)','열량적정성(%)','에너지수지(kcal)',
     '탄수화물(g)','복합당(g)','당류(g)','식이섬유(g)','단백질(g)','지방(g)',
@@ -618,6 +638,7 @@ function buildSheetRow(count){
   var balance = b.tdee? (nu.kcal-b.tdee):'';
   var sexKo = sex==='M'?'남':(sex==='F'?'여':'');
   var row=[new Date().toLocaleString('ko-KR'),pid,sexKo,age,ht,wt,b.bmi,b.cat,
+    (b.waist||''),(b.waistCm||''),(b.whtr||''),(b.whtrCat||''),(b.wcCat||''),
     b.actLabel,b.bmr,b.tdee,b.ideal,WATER_LABEL[water]||'',
     nu.kcal,kcalPct,balance,
     nu.carb,nu.complex,nu.sugar,nu.fiber,nu.protein,nu.fat,
@@ -644,7 +665,7 @@ function buildSheetRow(count){
 function submitSurvey(){
   var cnt=countAnswered();
   var nu=calcNutrition(), body=calcBody();
-  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,act:act,water:water,body:body,nu:nu,
+  var rec={pid:pid,sex:sex,age:age,ht:ht,wt:wt,waist:waist,act:act,water:water,body:body,nu:nu,
     time:new Date().toLocaleTimeString('ko-KR',{hour:'2-digit',minute:'2-digit'}),
     ans:JSON.parse(JSON.stringify(ANS)),count:cnt};
   if(!GAS_URL){ SUBS.push(rec); showDone(true,false); return; }
@@ -739,8 +760,17 @@ function bodyCard(s){
         (balance!=null?'<div style="font-size:15px;font-weight:600;color:'+pctColor+';margin-top:2px;">'+(balance>0?'+':'')+balance+' kcal</div>':'')+
         '<div style="font-size:11px;color:'+pctColor+';margin-top:3px;">'+(kcalPct!=null?'TDEE 대비 '+kcalPct+'% · ':'')+pctLabel+'</div></div>'+
       (s.water!==undefined&&s.water!==''?box('물 섭취량', (WATER_LABEL[s.water]||s.water)):'')+
+      (b.waistCm?(function(){
+        var wColor= b.whtrCat==='낮음'?'#2563eb': b.whtrCat==='정상'?'#03543f': b.whtrCat==='복부비만 위험'?'#92400e':'#9b1c1c';
+        return '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">허리둘레</div>'+
+          '<div style="font-size:15px;font-weight:600;color:#111;margin-top:2px;">'+b.waist+'인치 <span style="font-size:12px;color:#888;">('+b.waistCm+'cm)</span></div>'+
+          '<div style="font-size:11px;color:'+(b.wcCat==='복부비만'?'#9b1c1c':'#03543f')+';margin-top:2px;">'+b.wcCat+' (남90·여85cm 기준)</div></div>'+
+        '<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:10px;"><div style="font-size:11px;color:#888;">WHtR (허리÷키)</div>'+
+          '<div style="font-size:15px;font-weight:600;color:'+wColor+';margin-top:2px;">'+b.whtr+'</div>'+
+          '<div style="font-size:11px;color:'+wColor+';margin-top:2px;">'+b.whtrCat+' (0.5 이상 위험)</div></div>';
+      })():'')+
     '</div>'+
-    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor · TDEE=BMR×활동계수 · 표준체중: BMI 22. 참고용 추정치.</div></div>';
+    '<div style="font-size:11px;color:#aaa;margin-top:8px;line-height:1.5;">BMR: Mifflin-St Jeor · TDEE=BMR×활동계수 · 표준체중: BMI 22 · WHtR: 허리둘레(cm)÷키(cm). 참고용 추정치.</div></div>';
 }
 
 function seg(pct,color,label){
